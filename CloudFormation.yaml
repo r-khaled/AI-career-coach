@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'AI Career Coach - application and custom ingestion (Knowledge Base via Console or separate automation)'
+Description: 'AI Career Coach - IAM-protected application, course ingestion and scheduled knowledge refresh'
 
 Parameters:
   FoundationModelId:
@@ -535,12 +535,12 @@ Outputs:
     Value: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${CareerCoachAPI}/prod/POST/generate-plan'
 
   NextSteps:
-    Description: What to do next
+    Description: Deployment and acceptance entry points
     Value: |
-      1. Upload internal_courses.md to S3 bucket
-      2. Create KB via Console: default parser, NONE, ingestion transformation ARN and intermediate URI from Outputs; source catalog only
-      3. Update KnowledgeBaseId before Sync, preserving both artifact parameters; then Sync and validate Retrieve
-      4. Test with an IAM-signed request (the caller needs execute-api:Invoke)
+      1. Use ingestion.setup_lab setup with an explicit profile/Region to preview; add --apply to provision/reconcile
+      2. Setup uploads the catalog, creates/reuses the KB, binds its ID and hook permission, then creates/validates the source
+      3. Setup verifies initial Sync and Retrieve; --enable-schedule binds weekly refresh in this stack
+      4. Configure Flask with ApiEndpoint and caller execute-api:Invoke; validate generation, citations and DynamoDB persistence
   SyncScheduleName:
     Condition: HasSyncBinding
     Value:

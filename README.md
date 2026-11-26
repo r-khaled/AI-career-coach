@@ -1,41 +1,33 @@
-# AI Career Coach: understand, run, rebuild
+# AI Career Coach
 
-A learning project based on [crafting-the-cloud/aws-ai-powered-application](https://github.com/crafting-the-cloud/aws-ai-powered-application). It accepts a current role and goal, retrieves evidence from 40 synthetic internal courses, generates a plan through Bedrock, and saves successful requests/results in DynamoDB.
+AI Career Coach generates career-development plans grounded in an internal course catalog. Users submit their current role and career goal; Amazon Bedrock retrieves relevant course evidence, generates a plan and returns citations. Successful requests and plans are stored in DynamoDB.
 
-<!-- INGESTION_STATUS_START -->
-**Verified current state:** the stack is UPDATE_COMPLETE with fourteen resources. The Knowledge Base is ACTIVE on the existing OpenSearch collection/index; the latest real Sync indexed the catalog with zero document failures. The index contains 42 records (40 courses plus two contexts). All 13 labelled retrieval cases found their expected course IDs within top five; one out-of-scope case was also inspected. Exact-level/track/per-course-hour filter tests passed. KB configuration is connected to the application, but generation/end-to-end UI tests and application enforcement of strict plan constraints remain pending.
-<!-- INGESTION_STATUS_END -->
+The repository includes the Flask interface, AWS infrastructure, course-aware ingestion Lambda, first-time setup automation and configurable weekly knowledge refresh. The supplied dataset contains **40 synthetic courses across ten tracks**. CloudFormation is the infrastructure implementation used by this project.
 
-## Read in this order
+## Architecture
 
-1. [Learning plan](docs/00-learning-plan.md): Python reference -> manual TypeScript/Console -> Terraform.
-2. [Complete architecture](docs/01-architecture.md): system boundaries, Sync versus question-time, six Mermaid diagrams, roles, API and failure behavior.
-3. [Course-aware chunking decision](docs/decisions/course-aware-chunking.md): actual measurements, alternatives and the selected policy.
-4. [Code walkthrough](docs/02-code-walkthrough.md): Flask, inline application handler and packaged ingestion function.
-5. [AWS identity and Region](docs/03-aws-access-and-region.md), then [cost controls](docs/04-cost-controls.md).
-6. [Background runbook](docs/05-run-original-demo.md), [Ohio execution checkpoints](docs/08-guided-execution-us-east-2.md), and [ingestion deployment commands](docs/ingestion-deployment-plan.md).
-7. [Reproducible setup and weekly Sync](docs/automation.md): preview/apply commands, bootstrap, reuse, permissions, monitoring and cleanup.
-8. [Manual TypeScript rebuild](docs/06-manual-typescript-console.md), followed by [Terraform](docs/07-terraform-rebuild.md).
+```mermaid
+flowchart LR
+    Browser[Browser] --> Flask[Local Flask UI]
+    Flask -->|SigV4| API[API Gateway / AWS_IAM]
+    API --> App[Application Lambda]
+    App --> KB[Bedrock RetrieveAndGenerate]
+    App --> DB[DynamoDB plans]
+    KB --> Search[OpenSearch vector index]
+    KB --> Model[Nova Lite]
+    S3[S3 catalog] --> Ingest[Bedrock ingestion + custom Lambda]
+    Ingest --> Embed[Titan v2 embeddings]
+    Embed --> Search
+    Schedule[Weekly EventBridge Scheduler] --> Ingest
+```
 
-## What this revision contains
+The request path and ingestion path are separate. Custom ingestion preserves each course and its metadata as one evidence unit; it runs during Sync, not when a user asks for a plan. Default parser + built-in NONE + the transformation hook produce 40 course units and two catalog contexts. Titan v2 uses FLOAT32/1024-dimensional embeddings; OpenSearch stores the vectors, text and metadata. This is retrieval-augmented generation, not model training.
 
-- Local Flask UI with configurable API URL and server-side IAM signing; no deployed frontend or employee identity system.
-- CloudFormation baseline plus ingestion addition: fourteen resources after the integration corrections. The application handler stays inline; ingestion is a versioned ZIP with a separate execution role and seven-day log group.
-- One 40-course Markdown source. Custom chunking extracts typed metadata and keeps each course intact; 40 course units and two context units are output in transport batches, not forty new source files.
-- Default parser + built-in NONE + a POST_CHUNKING transformation is the selected KB configuration. Real parser/Sync and the initial retrieval/filter suite have passed; generation and full application constraints are not yet tested.
-- KB, its service role/data source, embedding configuration and OpenSearch collection/index/policies are outside CloudFormation ownership. After the user delegated the failed Console remainder, the existing vector store was reused and KB/Sync/Retrieve completed through API.
+The main CloudFormation stack owns application, ingestion and conditional Scheduler resources. A companion RAG stack creates a new KB/OpenSearch environment; an already configured KB can be reused. Scheduler runs independently of the local computer. [Complete architecture, ownership and diagrams](docs/architecture.md) · [Knowledge pipeline](docs/knowledge-pipeline.md) · [Chunking decision](docs/decisions/course-aware-chunking.md).
 
-## Lifecycle and historical evidence
+## Quick start
 
-An initial Ohio deployment rolled back because the caller lacked iam:TagRole; a later retry created the baseline successfully and the catalog was uploaded. The failed attempt is history, not the current state. An older us-east-1 review was not executed and must not be confused with Ohio.
-
-Infrastructure/code deployment is separate from document updates and Sync. No GitHub Actions pipeline is required. The optional [setup command](docs/automation.md) bootstraps a fresh account and adds weekly AWS EventBridge Scheduler Sync inside the main stack. It reuses an already configured KB; the new RAG/Scheduler templates have not been deployed by this publication. No live schedule was enabled. The main template needs a bucket bootstrap before uploading its first versioned ingestion artifact.
-
-CloudWatch stores execution logs; DynamoDB stores successful plan records; S3 stores source, intermediate and deployment objects under separate scopes. Saving conversations does not train model weights. A USD 5 target is not a configured spending cap, and no budget is created by this update. The existing OpenSearch collection remains billable independently of the stack; track its ownership and cleanup separately.
-
-## Run the project
-
-Use Python 3.12, AWS CLI v2, a supported Region and an IAM user/role CLI profile (not root). Examples below are Bash/WSL; use your own profile and account guard. See [required permissions and recovery](docs/automation.md) before provisioning billable resources.
+Requirements: Python 3.12, AWS CLI v2, an IAM user/role profile with the [deployment permissions](docs/security.md), and a Region supporting the selected Bedrock models/KB and OpenSearch resources. Do not use root. Examples use Bash/WSL and Ohio (`us-east-2`); replace YOUR_PROFILE with your authenticated profile. OpenSearch can incur persistent charges even with zero requests: review the [cost model](docs/costs.md) before provisioning.
 
 ```bash
 git clone https://github.com/r-khaled/AI-career-coach.git
@@ -43,24 +35,24 @@ cd AI-career-coach
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements-dev.txt
+# SSO profiles: aws sso login --profile YOUR_PROFILE
 aws sts get-caller-identity --profile YOUR_PROFILE --region us-east-2
-# For SSO: aws sso login --profile YOUR_PROFILE
 python -m unittest discover -s tests -v
 cfn-lint CloudFormation.yaml infrastructure/*.json
 
-# Preview only: read AWS state, no uploads/provisioning/Sync.
+# Read-only preview: inspect the destination account and existing resources.
 python -m ingestion.setup_lab setup --profile YOUR_PROFILE --region us-east-2
-# Create/reconcile infrastructure, upload data, initial Sync + Retrieve, then enable weekly refresh.
+# Provision/reconcile, upload source, initialize the KB, check retrieval and enable weekly refresh.
 python -m ingestion.setup_lab setup --profile YOUR_PROFILE --region us-east-2 --apply --enable-schedule
-# Inspect recent jobs; COMPLETE must also have zero document failures.
-python -m ingestion.setup_lab status --profile YOUR_PROFILE --region us-east-2
 ```
 
-First-time setup bootstraps the two S3 buckets, deploys the application/custom chunking, creates or reuses the KB, binds its ID and Lambda invocation permission, creates the new data source, runs the first Sync and a Retrieve smoke check, then binds the recurring Scheduler. The smoke check is not full retrieval evaluation or generation acceptance. No database migration framework is involved: CloudFormation creates the DynamoDB table; ingestion prepares the search index.
+Use `--expected-account YOUR_12_DIGIT_ACCOUNT_ID` as an account guard. Use a distinct stack name for another environment with `--stack-name`; S3 names include account/stack but not Region. In PowerShell activate the environment with its Windows activation script and set environment variables using PowerShell syntax.
 
-**EventBridge is part of the main stack.** `CloudFormation.yaml` includes the schedule/group/execution role/encrypted DLQ, conditional on real KB/data-source IDs. The live lab still has fourteen resources; applying this binding adds four, making eighteen. Weekly Sync defaults to Sunday 03:00 Africa/Cairo after opt-in. Change it with `--schedule-expression 'rate(7 days)'` and/or `--schedule-timezone UTC`; otherwise existing settings are preserved. A new account's KB/OpenSearch resources are managed by the companion RAG stack; already configured external KB resources are reused. Scheduler does not upload local edits or provision resources: it refreshes the uploaded source through Bedrock. [Full setup/scheduling guide](docs/automation.md).
+First setup bootstraps two private versioned buckets, uploads the verified ingestion ZIP, provisions application infrastructure, creates/reuses the KB, binds its invoke permission, creates/validates the source, runs initial Sync and a filtered Retrieve smoke check, then binds Scheduler in the main stack. The initial Sync happens immediately through the CLI; Scheduler refreshes the already prepared source later. No GitHub Actions pipeline or manual Console wizard is required for this path. [Full deployment procedure](docs/deployment.md).
 
-After retrieval validation, start the local application with the main stack's ApiEndpoint. The caller needs `execute-api:Invoke` on ApiInvokeArn; see [AWS access](docs/03-aws-access-and-region.md). Model-generation permission and availability must also be verified in your destination account.
+## Run the application locally
+
+Grant the caller `execute-api:Invoke` on ApiInvokeArn from the main stack. Read ApiEndpoint from Outputs rather than copying an endpoint from another account:
 
 ```bash
 export AWS_PROFILE=YOUR_PROFILE
@@ -69,16 +61,39 @@ export API_URL="$(aws cloudformation describe-stacks --stack-name career-coach-l
 python app.py
 ```
 
-Open `http://localhost:5001`. Test a generated plan, citations, the DynamoDB record and Lambda logs separately; the release's earlier verified lab state covers ingestion/Retrieve, not end-to-end generation. Strict level/track/duration requirements remain pending in the UI/backend.
+Open `http://localhost:5001`. The form accepts current role and career goal. Flask signs the cloud request server-side; credentials never belong in browser JavaScript. Restart Flask when API_URL changes. The cloud API is `POST /prod/generate-plan`, not a browser GET endpoint. [API/persistence contract](docs/api.md) · [Access configuration](docs/security.md).
 
-For data changes, rerun setup to validate/upload/Sync your local catalog. To Sync **already uploaded** source objects only:
+## Keep knowledge current
+
+After editing `internal_courses.md`, rerun setup to validate/upload/Sync it. To Sync only the objects already uploaded to S3:
 
 ```bash
 python -m ingestion.setup_lab sync --profile YOUR_PROFILE --region us-east-2 --apply
+python -m ingestion.setup_lab status --profile YOUR_PROFILE --region us-east-2
 ```
 
-## Moving accounts and model ARNs
+Scheduler is defined in `CloudFormation.yaml` with its own execution role, group and encrypted delivery-failure queue. It becomes a main-stack resource after real KB/source IDs are bound. New schedules default DISABLED; `--enable-schedule` opts in. The default is Sunday 03:00 Africa/Cairo; change it with `--schedule-expression` and `--schedule-timezone`. Existing settings remain unless explicitly overridden.
 
-The handler is unchanged. Its current foundation-model ARN uses the stack Region and model ID with an empty account field; it is not hardcoded to the original account. The KB ID, source buckets and Lambda/API resources must be rebuilt/rebound for a new account. If a future model choice uses an inference-profile ARN, use the destination account's ARN and matching IAM grants; the current FoundationModelId parameter accepts foundation-model IDs, not profile ARNs. Read the [migration notes](docs/automation.md#8-moving-to-a-different-account-or-region-modelkb-binding) before changing the working invocation.
+Scheduler submits StartIngestionJob; it does not upload local edits, provision the KB or generate plans. Its delivery DLQ does not report document failures inside accepted jobs. Require COMPLETE **and zero failed documents**, then evaluate Retrieve before generation. [Operating procedures and schedule verification](docs/operations.md).
 
-No live Scheduler was activated during this repository publication. Arabic study material and deployment evidence remain local/ignored. Regional resource charges continue independently of schedule state; this code does not impose a spending cap.
+## Cost profile
+
+This topology mixes token/request/duration charges with persistent search capacity. The documented Ohio minimum-capacity scenario is about **$175.63/month for 1,000 plan requests**, before credits/free tiers/tax and with the stated workload assumptions. The $175.20 search-capacity component dominates; this is an estimate, not a measured invoice or capacity guarantee. A two-hour/100-request scenario is about $0.53 if resources are actually retired afterward. Optional GPU acceleration, transfer and capacity growth are excluded.
+
+[Service-by-service costs, scenarios and controls](docs/costs.md) · [Reproducible inputs](docs/cost-model.json).
+
+```bash
+python scripts/estimate_cost.py --requests 1000
+```
+
+## Implementation and validation
+
+`app.py` handles the local UI/SigV4 client; the backend handler is inline in CloudFormation and packaged as `index.py`. The separate `ingestion/` package provides schema validation, the Bedrock/S3 adapter, deterministic ZIP generation and setup/Sync/status commands. Tests cover local request behavior/signing, whole-course extraction, transformation contracts, ZIP contents and guarded deployment logic. [Complete module reference](docs/code-reference.md).
+
+The reference deployment verified real ingestion into 42 records and initial retrieval/filter cases. New-account setup and Scheduler must be accepted in the destination account; code inclusion is not proof of deployment. The reference stack check on 2026-11-26 found 14 resources and no deployed Scheduler. Generation/citation persistence and end-to-end UI acceptance remain separate checks. Exact-level, strict-track, duration/prerequisite plan enforcement, employee authentication and out-of-scope refusal are not implemented in the current app. [Deployment acceptance](docs/deployment.md#6-application-acceptance).
+
+## Documentation
+
+[Documentation index](docs/README.md) links architecture, code, deployment, knowledge contracts, security, operations, cost analysis and the chunking decision. Private archived material and deployment evidence are excluded from Git.
+
+The initial application concept/reference implementation is based on [crafting-the-cloud/aws-ai-powered-application](https://github.com/crafting-the-cloud/aws-ai-powered-application); this repository documents its current infrastructure, ingestion and operational implementation.

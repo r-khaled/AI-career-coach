@@ -79,7 +79,7 @@ def prepare(*, bucket, intermediate_bucket, account_id, region, stack_name, pref
                "policy": "course boundaries; zero cross-course overlap; built-in NONE plus custom Lambda",
                "token_counts": "not measured; word and character counts are not tokens",
                **counts, "fileContents": chunks}
-    preview_path = Path(preview_path) if preview_path else ROOT / ".local-ar/experiments/course-chunking/course-aware-preview.json"
+    preview_path = Path(preview_path) if preview_path else ROOT / ".local/AR/experiments/course-chunking/course-aware-preview.json"
     preview_path.parent.mkdir(parents=True, exist_ok=True)
     preview_path.write_text(json.dumps(preview, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     manifest = {"status": "prepared_locally_not_deployed", "source_sha256": source_hash,
