@@ -40,3 +40,24 @@ Retrieval can filter by course_id, exact level, track and numeric duration witho
 Local tests verify distinct complete records, invalid-schema failures, metadata, deterministic packaging and Bedrock event adaptation. The reference environment's real ingestion produced 40 course units plus two contexts and passed its initial labelled retrieval/filter checks. That is implementation evidence, not a comparative chunking benchmark or end-to-end generation acceptance. A new catalog/embedding/index configuration requires renewed coverage and ranking evaluation.
 
 [AWS transformation contract](https://docs.aws.amazon.com/bedrock/latest/userguide/kb-custom-transformation.html) defines NONE/custom-hook integration.
+
+## Relationship to the agreed redesign (2026-11-26)
+
+**Before redesign — implemented:** The course-aware ingestion decision and its evidence above remain the baseline.
+
+**After redesign — agreed, not implemented:** [Guided Career Planning Redesign](guided-career-planning-redesign.md) changes intake, retrieval, planning and validation while retaining this parser/NONE/custom-transformation design initially. Prerequisite closure and plan-hour checks belong to application logic. Future filterable skill metadata would require a separately reviewed extraction/reprocessing change; this decision does not claim that such metadata exists.
+
+**Before/after boundary example (design only):**
+
+```mermaid
+flowchart LR
+    Catalog["Before: catalog"] --> Hook["Course-aware ingestion"]
+    Hook --> Units["Intact text and typed metadata"]
+    Units --> KB["KB evidence"]
+    Retained["After: same ingestion contract"] --> Same["Same course units and index"]
+    Same --> Retrieve["Application Retrieve"]
+    Retrieve --> Closure["NEW: prerequisite closure and cycle checks"]
+    Closure --> Validate["NEW: deduplicated totals and evidence validation"]
+```
+
+The new checks run at plan time, not inside the ingestion hook. A direct prerequisite list is not a complete dependency graph; an internal course ID must still resolve to actual catalog evidence.

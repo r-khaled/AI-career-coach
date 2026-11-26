@@ -17,3 +17,11 @@ python -m ingestion.setup_lab status --profile YOUR_PROFILE --region us-east-2
 ```
 
 [Deployment](../docs/deployment.md) · [Pipeline contract](../docs/knowledge-pipeline.md) · [Code reference](../docs/code-reference.md) · [Operations](../docs/operations.md)
+
+## Before/after redesign boundary (2026-11-26)
+
+**Current implementation:** this package owns source validation, whole-course extraction, the transformation adapter and knowledge setup/Sync. It does not own user dialogue or plan jobs.
+
+**Agreed target, not implemented:** [Guided Career Planning Redesign](../docs/decisions/guided-career-planning-redesign.md) retains this ingestion runtime and source schema initially. Application skill/question configuration, anonymous sessions, Serper evidence, prerequisite closure and structured plan validation belong to separately packaged application/worker code. Do not add them to the three-file transformation ZIP.
+
+Knowledge edits still require deliberate upload/Sync. Application-only releases should gain their own deployment path rather than needlessly running this knowledge setup. That app-only path does not exist in the current CLI.

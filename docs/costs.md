@@ -6,7 +6,15 @@
 
 The reproducible inputs/rates are in [cost-model.json](cost-model.json), with an [offline calculator](../scripts/estimate_cost.py). No AWS calls or credentials are used by the calculator. Gross estimates exclude free tiers, credits, tax and discounts so account eligibility does not conceal persistent costs. Optional GPU acceleration, capacity growth, data transfer and external Flask hosting are explicitly outside the totals.
 
+
+<!-- REDESIGN_NOTE_START -->
+> **Documentation timeline — 2026-11-26:** Existing paragraphs/examples below describe the implemented baseline. Each affected section also records the agreed post-redesign target, **not implemented or deployed**. See [Guided Career Planning Redesign](decisions/guided-career-planning-redesign.md). Existing commands do not deploy that target.
+<!-- REDESIGN_NOTE_END -->
 ## Cost structure of this deployment
+
+<!-- REDESIGN_NOTE_START -->
+**Before redesign — implemented baseline:**
+<!-- REDESIGN_NOTE_END -->
 
 Most request-path costs scale with successful/attempted calls, tokens or duration. OpenSearch is different: the VECTORSEARCH collection uses indexing/search OCUs and managed storage, not a fixed price per search request. The reference collection was verified ACTIVE with standby disabled. For the small, nonredundant capacity case, assume 0.5 indexing OCU plus 0.5 search OCU; actual data/memory/shard demand may require more. There is no basis to assume scale-to-zero for this configuration. Same-key vector collections can share capacity; do not charge a separate floor to each shared collection blindly. [Capacity and billing](https://aws.amazon.com/opensearch-service/pricing/).
 
@@ -14,37 +22,167 @@ At $0.24 per OCU-hour for each compute category, this illustrative floor costs `
 
 The live reference collection also reports vector acceleration enabled. That feature can incur separate accelerated-index-build compute when used; an enabled setting is not proof of a charge or of zero usage. The new RAG template does not explicitly configure this option, so inspect each deployed collection. GPU acceleration is not Titan embedding or the normal Search/Indexing OCU charge. Its actual usage is not measured here and is excluded from totals. [AWS acceleration contract](https://docs.aws.amazon.com/opensearch-service/latest/developerguide/gpu-acceleration-vector-index.html).
 
+
+<!-- REDESIGN_NOTE_START -->
+**After redesign — agreed target, not implemented (2026-11-26):** Keep these baseline estimates and search-capacity assumptions intact. The redesign adds multi-turn inference, sessions, a worker, external search/page reads and secrets; it does not eliminate persistent OpenSearch cost.
+
+
+<!-- REDESIGN_DETAIL_START -->
+```text
+BASELINE MONTH = persistent search + one-call plan requests + knowledge/storage overhead
+TARGET MONTH   = retained persistent search + wizard journeys + background jobs
+                 + external search + secret/storage/telemetry + knowledge overhead
+TARGET JOURNEY = accepted turns + outline + retrieval/search + final output
+                 + optional bounded repair + API/polling/persistence work
+```
+
+The new flow changes workload accounting, not the existence of the search-capacity floor.
+<!-- REDESIGN_DETAIL_END -->
+<!-- REDESIGN_NOTE_END -->
 ## Per-service rates and formulas
 
+<!-- REDESIGN_NOTE_START -->
+**Before redesign — implemented baseline:**
+<!-- REDESIGN_NOTE_END -->
+
+
+<!-- REDESIGN_NOTE_START -->
+**After redesign — agreed target, not implemented (2026-11-26):** The following rates/formulas remain the original topology's assumptions. Build a separate measured redesign scenario rather than replacing historical totals or asserting credit eligibility.
+
+
+<!-- REDESIGN_DETAIL_START -->
+**Target calculation convention:** retain all historical rates/scenarios below unchanged. Use explicit measured quantities and newly verified provider/model prices for the new flow. Never substitute a timeout for average duration or a token cap for average generated tokens. The existing cost-model.json and calculator remain baseline-only until separately extended.
+<!-- REDESIGN_DETAIL_END -->
+<!-- REDESIGN_NOTE_END -->
 ### Bedrock generation and embeddings
+
+<!-- REDESIGN_NOTE_START -->
+**Before redesign — implemented baseline:**
+<!-- REDESIGN_NOTE_END -->
 
 Nova Lite on-demand input is $0.06/million tokens and output $0.24/million tokens. With assumed 3,000 input and 600 output tokens, each generation is `(3000 × 0.06 + 600 × 0.24) / 1,000,000 = $0.000324`. Input includes the generated prompt, retrieved evidence and service context, not just the two form fields. The 800-token output cap is implemented; 600 average output tokens is an assumption. [Bedrock pricing](https://aws.amazon.com/bedrock/pricing/).
 
 Titan v2 text embeddings use $0.02/million input tokens. A 150-token query costs $0.000003; five full ingestion passes of an assumed 12,000 source tokens cost $0.0012. These token counts were not measured. Scheduled Sync detects changes, so five weekly checks do not automatically imply five full re-embeddings; the model intentionally budgets full passes. No reranker, multimodal parser or extra LLM parser call is configured. KB orchestration has no separate base KB fee in this text-RAG use case; underlying model/search/storage charges remain. [Titan price](https://aws.amazon.com/blogs/machine-learning/get-started-with-amazon-titan-text-embeddings-v2-a-new-state-of-the-art-embeddings-model-on-amazon-bedrock/), [AWS KB cost example](https://docs.aws.amazon.com/solutions/latest/generative-ai-application-builder-on-aws/cost.html).
 
+
+<!-- REDESIGN_NOTE_START -->
+**After redesign — agreed target, not implemented (2026-11-26):** Count intake, outline, final and optional repair input/output separately; final output starts at 2048, repair may reach 4096. Keep embedding-query charges separate; do not charge ingestion once per dialogue turn.
+
+
+<!-- REDESIGN_DETAIL_START -->
+```text
+model_cost = sum over intake + outline + final + optional repair:
+               input_tokens * applicable_input_rate
+             + output_tokens * applicable_output_rate
+
+query_embedding_cost = query_tokens * embedding_rate
+ingestion_embedding_cost = changed-source ingestion tokens * embedding_rate
+Do not multiply source re-embedding by the number of intake turns.
+```
+
+Rates must use consistent units (for example per million tokens). Record actual model/profile, caching mode if used, failed calls and repair frequency. The 2048/4096 values are caps, not billed averages.
+<!-- REDESIGN_DETAIL_END -->
+<!-- REDESIGN_NOTE_END -->
 ### Application and ingestion Lambda
+
+<!-- REDESIGN_NOTE_START -->
+**Before redesign — implemented baseline:**
+<!-- REDESIGN_NOTE_END -->
 
 Use x86 on-demand request charges of $0.20/million and duration of $0.0000166667/GB-second. The application has 512 MB; at assumed 10 seconds it consumes 5 GB-seconds per call, approximately $0.0000835335 including the request. Waiting for Bedrock still counts toward Lambda duration. No provisioned concurrency is configured.
 
 The hook has 256 MB; five assumed one-second transformations cost about $0.00002183 including requests. Actual invocation counts depend on processed inputs/retries, not user-message count. The model assumes one hook invocation per source per Sync. Lambda free allowances may reduce the invoice when available; they are not subtracted from these gross numbers. [Lambda pricing](https://aws.amazon.com/lambda/pricing/).
 
+
+<!-- REDESIGN_NOTE_START -->
+**After redesign — agreed target, not implemented (2026-11-26):** Count intake/proxy work and asynchronous worker GB-seconds, including network waiting. The worker initially targets 180 seconds maximum, not an assumed 180-second average. Ingestion remains independent.
+
+
+<!-- REDESIGN_DETAIL_START -->
+```text
+runtime_cost = sum(request_charge + allocated_GB * billed_seconds * GB_second_rate)
+Include: intake analysis wait, generation evidence/model wait, failures and retries
+Separate: ingestion Lambda calls from user conversation and generation calls
+Worker timeout: 180 seconds proposed maximum, not assumed mean duration
+```
+<!-- REDESIGN_DETAIL_END -->
+<!-- REDESIGN_NOTE_END -->
 ### HTTP API Gateway
+
+<!-- REDESIGN_NOTE_START -->
+**Before redesign — implemented baseline:**
+<!-- REDESIGN_NOTE_END -->
 
 This is an HTTP API, not a REST API/WebSocket/API destination. The initial pricing tier is $1.00/million billable calls, so 1,000 small requests cost $0.001. HTTP API size metering uses 512-KB request increments; the calculator assumes one unit per submitted plan. Larger requests/retries/unauthorized traffic need separate accounting. Response transfer is not included. [API pricing](https://aws.amazon.com/api-gateway/pricing/).
 
+
+<!-- REDESIGN_NOTE_START -->
+**After redesign — agreed target, not implemented (2026-11-26):** Budget per-answer/review/create/poll/revision calls, not one API request per completed roadmap. Polling and failed/repeated requests affect usage.
+
+
+<!-- REDESIGN_DETAIL_START -->
+```text
+calls_per_journey =
+  create/resume + answer submissions + review + generation request
+  + status polls + plan reads/download support + revision requests + retries
+
+Before: one plan POST in the workload model
+After: multiple bounded operations; polling cadence must be measured/configured
+```
+<!-- REDESIGN_DETAIL_END -->
+<!-- REDESIGN_NOTE_END -->
 ### DynamoDB
+
+<!-- REDESIGN_NOTE_START -->
+**Before redesign — implemented baseline:**
+<!-- REDESIGN_NOTE_END -->
 
 PAY_PER_REQUEST writes use $0.625/million write request units; a normal write is rounded up per 1 KB item size. At assumed 8 KiB per saved plan, 1,000 successful writes cost `1000 × 8 × 0.625 / 1,000,000 = $0.005`. The app has no table-read API; do not budget one read for vector retrieval, which uses OpenSearch instead.
 
 Storage uses $0.25/GB-month; 1,000 assumed 8-KiB records retained for a full month cost about $0.00191. The calculator conservatively charges the whole month's new records for the full month. Prior retained records accumulate because no TTL is configured; index/citation growth can also increase item sizes. Streams have no configured consumer in this project. [DynamoDB pricing](https://aws.amazon.com/dynamodb/pricing/).
 
+
+<!-- REDESIGN_NOTE_START -->
+**After redesign — agreed target, not implemented (2026-11-26):** Add session/turn/job reads, conditional claims, updates and TTL-retained storage, plus immutable plans. TTL cleanup is delayed; final-plan retention remains separate.
+
+
+<!-- REDESIGN_DETAIL_START -->
+```text
+target_usage =
+  session/turn reads + claim/version conditional writes + saved next questions
+  + job snapshot/stage/dispatch records + immutable plan writes
+  + storage retained until actual expiry/deletion
+
+Seven-day logical expiry != immediate removal of billed storage
+Final-plan retention != session TTL
+Larger items/transactions/retries change billed request units
+```
+<!-- REDESIGN_DETAIL_END -->
+<!-- REDESIGN_NOTE_END -->
 ### S3 and CloudWatch
+
+<!-- REDESIGN_NOTE_START -->
+**Before redesign — implemented baseline:**
+<!-- REDESIGN_NOTE_END -->
 
 S3 Standard reference rates are $0.023/GB-month, $0.005/1,000 PUT-class requests and $0.0004/1,000 GET-class requests. A combined 0.1-GB source/artifact/intermediate allowance plus 100 PUTs and 100 GETs costs $0.00284/month. Bucket creation is not charged as a reserved server. Versioning retains old objects and intermediate batches; growth is not capped by the small current catalog. Source S3 reads occur for ingestion, not as one direct source read for every question. [S3 pricing](https://aws.amazon.com/s3/pricing/).
 
 CloudWatch log references are $0.50/GB ingestion and $0.03/GB-month archived storage. At 4 KiB assumed application logs/request, 1,000 requests cost about $0.00202 including a full month's archive. Ingestion logs have seven-day retention; the application log group does not have explicit template retention. Extra ingestion logs, Logs Insights scans, custom metrics and alarms are not covered by that per-request assumption. [CloudWatch pricing](https://aws.amazon.com/cloudwatch/pricing/).
 
+
+<!-- REDESIGN_NOTE_START -->
+**After redesign — agreed target, not implemented (2026-11-26):** Add versioned application artifacts and privacy-safe worker/job telemetry. Do not default to full-page or raw-answer archival; retain existing knowledge artifact/storage accounting.
+
+
+<!-- REDESIGN_DETAIL_START -->
+**Target cost inputs:** sizes/versions of app and worker artifacts; retained evidence excerpts where stored; log bytes/retention and job-stage metrics. Keep existing source/intermediate/versioned-ingestion costs. Do not add full-page archives or raw-answer logging as hidden assumptions.
+<!-- REDESIGN_DETAIL_END -->
+<!-- REDESIGN_NOTE_END -->
 ### Scheduler and SQS
+
+<!-- REDESIGN_NOTE_START -->
+**Before redesign — implemented baseline:**
+<!-- REDESIGN_NOTE_END -->
 
 Scheduler is charged per invocation, with a published 14-million/month free allowance and $1/million above it. Five weekly invocations have a gross rate equivalent of $0.000005 and generally cost zero when allowance is available; no event-bus event or API Destination fee is added for this direct Scheduler SDK target. Starting a Sync still incurs any underlying ingestion work. Scheduler was deployed and enabled in the reference stack by the authorized setup run on 2026-11-26. [Scheduler pricing](https://aws.amazon.com/eventbridge/pricing/).
 
@@ -52,7 +190,25 @@ The standard SQS DLQ has no compute server charge; requests use $0.40/million af
 
 IAM and native AWS CloudFormation resource management add no request-path server fee. No EC2, NAT Gateway, load balancer, CloudFront distribution, custom KMS key or deployed frontend is provisioned by this topology.
 
+
+<!-- REDESIGN_NOTE_START -->
+**After redesign — agreed target, not implemented (2026-11-26):** Keep weekly ingestion costs separate from the new generation queue/DLQ, polling, deliveries and retries. SQS does not add an EC2 server, but usage is still billable.
+
+
+<!-- REDESIGN_DETAIL_START -->
+```text
+Retained knowledge costs: weekly Scheduler + its target-delivery DLQ
+New plan costs: SendMessage + worker receives/deletes + polls/retries + generation DLQ
+A successful knowledge schedule does not imply a generation queue workload.
+An empty generation queue does not require an always-on EC2/Redis server.
+```
+<!-- REDESIGN_DETAIL_END -->
+<!-- REDESIGN_NOTE_END -->
 ## Workload assumptions and scenarios
+
+<!-- REDESIGN_NOTE_START -->
+**Before redesign — implemented baseline:**
+<!-- REDESIGN_NOTE_END -->
 
 A message here means one plan request, one RetrieveAndGenerate, one successful DynamoDB write and one HTTP API/Lambda request. The scenarios assume no retries/failures, 10-second application duration, 3,000/600 generation input/output tokens, 150 query-embedding tokens, 8-KiB items, 4-KiB app logs, five full source Syncs and one hook call per Sync. Source token count is assumed 12,000; words/characters are not substituted as measured tokens. Each monthly scenario reserves 0.1 GB in S3 and 0.1 GB in OpenSearch and keeps the collection at one combined OCU for 730 hours. These are inputs to adjust, not load-test observations.
 
@@ -76,16 +232,69 @@ python scripts/estimate_cost.py --requests 1000 --indexing-ocus 1 --search-ocus 
 
 All output is JSON with the complete assumptions, service breakdown and exclusions. Fractional item sizes round upward for write units. Negative/nonfinite assumptions fail. Storage allowances are full-month charges even for the short-run example, making that comparison conservative; they are not duration-prorated automatically.
 
+
+<!-- REDESIGN_NOTE_START -->
+**After redesign — agreed target, not implemented (2026-11-26):** The old meaning of a message (one generation request) is not a full wizard journey. Measure question counts, model tokens, searches, page reads, job duration, polling and repair/failure rates before producing new totals.
+
+
+<!-- REDESIGN_DETAIL_START -->
+**New scenario worksheet (values must be measured, not inferred from the old scenarios):**
+
+```json
+{"scenario":"redesign-workload-template","journeys_per_month":null,"mean_accepted_answers":null,"mean_model_input_tokens_by_stage":null,"mean_model_output_tokens_by_stage":null,"mean_search_requests":null,"mean_page_reads":null,"mean_worker_billed_seconds":null,"mean_status_polls":null,"repair_fraction":null,"retry_fraction":null}
+```
+
+null means not measured; it is not a free or zero-cost operation. Populate this worksheet and verified rates before issuing a redesigned monthly estimate.
+<!-- REDESIGN_DETAIL_END -->
+<!-- REDESIGN_NOTE_END -->
 ## Measured configuration versus actual invoice
+
+<!-- REDESIGN_NOTE_START -->
+**Before redesign — implemented baseline:**
+<!-- REDESIGN_NOTE_END -->
 
 A read-only check established the reference collection's type/redundancy and the absence of Scheduler on 2026-11-26. The billing query available during this review was still marked Estimated and did not contain settled OpenSearch/Bedrock line items. It does not establish a zero-cost deployment. Account-wide or Region-wide service totals also cannot be attributed precisely to this stack without allocation evidence.
 
 Use Cost Explorer/CUR by service and usage type, hourly OCU metrics, model input/output tokens, Lambda billed duration, table size/consumed units, log bytes and versioned-object storage to reconcile estimates. Keep account invoices/IDs/credit balances in private evidence; they are not included in this public documentation. A reusable project's expected cost is not the original account's net post-credit bill.
 
+
+<!-- REDESIGN_NOTE_START -->
+**After redesign — agreed target, not implemented (2026-11-26):** Do not reinterpret dated baseline observations as redesigned runtime measurements. Provider access, credits, price and full-journey costs require fresh evidence.
+
+
+<!-- REDESIGN_DETAIL_START -->
+**Evidence required for a new estimate:** measured provider usage, runtime durations, table/log sizes, polling/retry counts and persistent search capacity, plus applicable dated prices. Compare estimated components against actual account billing when available. Retain historical measurements and do not relabel them as wizard traffic.
+<!-- REDESIGN_DETAIL_END -->
+<!-- REDESIGN_NOTE_END -->
 ## Controls implemented and operator actions
+
+<!-- REDESIGN_NOTE_START -->
+**Before redesign — implemented baseline:**
+<!-- REDESIGN_NOTE_END -->
 
 Implemented: API throttle one request/second with burst two; 800 generated-output-token cap; 60-second Lambda timeouts; fixed memory sizes; scoped IAM; seven-day ingestion-log retention; hash/version reuse of unchanged code/data; default-parser/custom-boundary ingestion without a paid LLM parser. These reduce particular costs but are not an account spending limit. The API throttle does not bound direct Bedrock calls or persistent OCU cost.
 
 Operational controls: set account/Region service budgets and anomaly notifications; inspect account-level OpenSearch maximum indexing/search capacity before setting a shared limit; explicitly bound application-log retention and old S3 versions/intermediate data according to policy; validate duration/token inputs against actual usage; disable unnecessary refresh and remove owned search infrastructure after short runs. Budgets are alerts/actions configured separately, not an automatic universal hard cap. No budget/alarm/account-level OCU limit/object lifecycle/teardown timer is created by these templates. Avoid changing account-wide limits without assessing other workloads.
 
 A model switch requires new unit prices and IAM/inference compatibility checks. Choosing another vector-store architecture is a separate design change; this document prices the implemented OpenSearch stack rather than silently assuming a cheaper store. See [cleanup ownership](operations.md#cleanup).
+
+<!-- REDESIGN_NOTE_START -->
+**After redesign — agreed target, not implemented (2026-11-26):** Proposed caps are 14 information questions, four follow-ups/two per axis, three search requests and five page reads per plan/revision, plus one final-output repair. Caps bound work but are not a measured monetary guarantee.
+
+
+<!-- REDESIGN_DETAIL_START -->
+```text
+PLANNED WORK BOUNDS
+Information questions      <= 14 (10 core + 4 follow-ups)
+Follow-ups per axis        <= 2
+Search requests per plan   <= 3, including provider retries
+Candidates per search      <= 5
+Selected page reads        <= 5
+Final-output repair        <= 1
+Initial final output cap   = 2048; repair may use 4096
+
+NOT YET A MONEY GUARANTEE
+Input context sizes, models, network time, job delivery and polling still matter.
+```
+<!-- REDESIGN_DETAIL_END -->
+<!-- REDESIGN_NOTE_END -->
