@@ -50,6 +50,17 @@ Use `--expected-account YOUR_12_DIGIT_ACCOUNT_ID` as an account guard. Use a dis
 
 First setup bootstraps two private versioned buckets, uploads the verified ingestion ZIP, provisions application infrastructure, creates/reuses the KB, binds its invoke permission, creates/validates the source, runs initial Sync and a filtered Retrieve smoke check, then binds Scheduler in the main stack. The initial Sync happens immediately through the CLI; Scheduler refreshes the already prepared source later. No GitHub Actions pipeline or manual Console wizard is required for this path. [Full deployment procedure](docs/deployment.md).
 
+
+## Deployment order and existing stacks
+
+**Start with the setup CLI after cloning/authenticating; do not deploy the full CloudFormation template first.** Setup invokes CloudFormation itself: fresh bucket bootstrap → ZIP preparation/upload → full main-stack change sets → KB/source binding → initial Sync/Retrieve → Scheduler binding. CloudFormation does not execute the local setup Python file.
+
+The full template requires `IngestionCodeS3Key` and `IngestionCodeS3ObjectVersion`. A direct fresh deployment without those parameters fails validation; supplied parameters pointing to a missing ZIP can fail Lambda creation/roll back. With a valid ZIP, the main stack can deploy while the KB/source are still unconfigured; optional Scheduler resources remain absent until both IDs are bound. Main-stack success alone is not a complete knowledge setup.
+
+For a compatible existing stack, rerun the same setup commands with its exact account/profile, Region and `--stack-name`. Setup reuses verified artifacts and a validated configured KB, updates the existing stack and completes supported remaining steps. It does not create a second environment unless a different stack name is chosen. The read-only preview is an application plan, **not** a prepared CloudFormation change set. During `--apply`, the CLI saves/prints/checks and executes change sets automatically; it does not pause for a human review.
+
+Reconciliation is repeatable within the supported configuration, not universal recovery: reruns still perform Sync/Retrieve; existing source/intermediate buckets must already have the expected names, Region and versioning; mismatched/unbound external KBs, failed/in-progress stacks and arbitrary missing/drifted resources require inspection. An older baseline missing the intermediate bucket is not automatically upgraded by the current wrapper's bucket preflight. See [resume behavior and limits](docs/deployment.md#existing-stacks-and-repeated-setup).
+
 ## Run the application locally
 
 Grant the caller `execute-api:Invoke` on ApiInvokeArn from the main stack. Read ApiEndpoint from Outputs rather than copying an endpoint from another account:

@@ -53,6 +53,26 @@ Every infrastructure update creates/describes a change set, saves/prints all cha
 
 Existing external KBs are not imported into CloudFormation. Reuse requires ACTIVE vector/OpenSearch Serverless, Titan v2/FLOAT32/1024 and one AVAILABLE source matching the catalog/default parser/NONE/hook/intermediate configuration. A mismatched or unbound same-name KB stops for inspection. An existing stack using a separate CloudFormation execution role requires explicit RAG provisioning and data-plane grants for that role.
 
+
+## Existing stacks and repeated setup
+
+Use the setup CLI as the deployment entry point; the full main template is not the first step of a fresh installation. Its two ingestion artifact parameters are required. Omitting them prevents a valid change set, and referencing absent objects can cause resource-creation failure/rollback. A valid direct main-stack deployment still does not upload the catalog, create/reuse the KB, run Sync or bind a weekly schedule automatically. Setup performs those stages around its CloudFormation calls.
+
+For an existing compatible environment, use the same profile/account, Region and stack name:
+
+```bash
+python -m ingestion.setup_lab setup --profile YOUR_PROFILE --region us-east-2 --stack-name career-coach-lab
+python -m ingestion.setup_lab setup --profile YOUR_PROFILE --region us-east-2 --stack-name career-coach-lab --apply --enable-schedule
+```
+
+Supported reconciliation includes a new environment, a successful bucket-only bootstrap revision, the supported main stack with KB still unbound, a partial owned RAG deployment between KB binding and source creation, and a main stack already connected to a matching external KB. Existing stacks must be CREATE_COMPLETE, UPDATE_COMPLETE or UPDATE_ROLLBACK_COMPLETE. Verified matching object versions are reused; unspecified parameters and schedule settings remain; no-op change sets are accepted. The explicit enable flag intentionally sets the schedule to ENABLED.
+
+This is infrastructure reconciliation, not an entirely side-effect-free retry: setup still checks/uploads changed content, starts or waits for Sync, performs Retrieve and writes local evidence. Use `sync --apply` when only refreshing already-uploaded data.
+
+The wrapper is not an arbitrary legacy-stack importer or drift-repair tool. It checks both expected buckets before applying the full template to an existing stack; a legacy baseline lacking the intermediate bucket stops at that check. Missing/renamed/nonversioned/wrong-Region buckets need an explicit migration. Existing external same-name KBs without a main-stack binding, incompatible sources/models, distinct CloudFormation execution-role arrangements, failed/in-progress stacks and missing manually deleted resources may also stop rather than be adopted/recreated automatically. Inspect saved evidence and resolve the actual condition before rerunning; do not delete the base stack as a generic fix.
+
+The read-only preview creates no AWS change set. With `--apply`, change sets are saved/printed and checked by the wrapper, then executed automatically without an interactive human-review pause. If human review before each execution is required, perform the documented bootstrap/package/main/RAG/binding stages explicitly with create/describe/execute change-set commands instead of treating preview as that approval checkpoint.
+
 ## 3. Schedule configuration
 
 `--enable-schedule` opts into Sunday 03:00 Africa/Cairo. Without a schedule flag, a new schedule is DISABLED and existing state/expression/timezone remain unchanged. Override frequency/timezone when required:
