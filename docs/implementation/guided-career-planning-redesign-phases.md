@@ -6,6 +6,11 @@
 
 This breaks the agreed redesign into nine bounded chat-sized work packages. The redesign is the design authority; this document defines execution order, outputs and handoffs. Existing before/after documentation distinguishes implemented baseline from targets. The sequence does not authorize cloud changes or create new chats automatically.
 
+
+## Single-session execution mode
+
+Use [the complete orchestrator prompt](guided-career-planning-redesign-orchestrator-prompt.md) to execute all nine phases in one chat with up to three gpt-6.1-terra/medium workers and a gpt-6.1-sol/medium orchestrator. The single-phase prompts below remain optional standalone-task instructions; they do not require stopping a single-session orchestrator after phase 1. In single-session mode, phases 4 and 5 may overlap after stable phase-3 interfaces; phase 8 may overlap phase 7 only with frozen contracts and separate ownership. Acceptance still respects dependencies and explicit live-action authorization.
+
 ## How to use this plan
 
 Start a new chat with the phase-specific prompt below. Give that chat access to this same repository and the preceding handoff. Run phases in numerical order by default; do not advance until the predecessor's acceptance is evidenced. Phase 1 starts from the current baseline. Phase N depends on phases 1 through N-1 being accepted, not simply discussed.

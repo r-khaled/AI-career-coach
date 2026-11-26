@@ -38,3 +38,5 @@ Target examples are design-only; implementation and live acceptance remain pendi
 - [Canonical redesign](decisions/guided-career-planning-redesign.md): agreed design and schemas against which the examples are checked.
 
 The existing JSON cost inputs and calculator remain baseline-only. The redesigned workload worksheet is documentation, not an implemented calculator or a measured estimate.
+
+[Single-session orchestrator prompt](implementation/guided-career-planning-redesign-orchestrator-prompt.md) executes all nine phases with bounded worker parallelism and explicit dependency gates.
