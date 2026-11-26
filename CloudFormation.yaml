@@ -471,7 +471,7 @@ Resources:
           - WeeklySyncExecutionRole
           - Arn
         Input:
-          Fn::Sub: '{"knowledgeBaseId":"${KnowledgeBaseId}","dataSourceId":"${KnowledgeBaseDataSourceId}"}'
+          Fn::Sub: '{"KnowledgeBaseId":"${KnowledgeBaseId}","DataSourceId":"${KnowledgeBaseDataSourceId}"}'
         RetryPolicy:
           MaximumEventAgeInSeconds: 3600
           MaximumRetryAttempts: 2

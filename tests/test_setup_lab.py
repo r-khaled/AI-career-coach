@@ -198,7 +198,10 @@ class InfrastructureTests(unittest.TestCase):
         self.assertNotIn("clientToken", target["Input"]["Fn::Sub"])
         payload = json.loads(target["Input"]["Fn::Sub"].replace("${KnowledgeBaseId}", "ABCDEFGHIJ").replace("${KnowledgeBaseDataSourceId}", "1234567890"))
         shape = get_session().get_service_model("bedrock-agent").operation_model("StartIngestionJob").input_shape
-        validate_parameters(payload, shape)
+        # Scheduler universal targets require PascalCase, unlike boto3's Bedrock request.
+        # Live CreateSchedule validation rejects the lower-camel-case payload.
+        self.assertEqual(set(payload), {"KnowledgeBaseId", "DataSourceId"})
+        validate_parameters({"knowledgeBaseId": payload["KnowledgeBaseId"], "dataSourceId": payload["DataSourceId"]}, shape)
         role = template["Resources"]["WeeklySyncExecutionRole"]["Properties"]
         statements = role["Policies"][0]["PolicyDocument"]["Statement"]
         self.assertEqual({s["Action"] for s in statements}, {"bedrock:StartIngestionJob", "sqs:SendMessage"})

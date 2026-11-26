@@ -12,7 +12,7 @@ aws cloudformation describe-stacks --stack-name career-coach-lab --profile YOUR_
 aws cloudformation list-stack-resources --stack-name career-coach-lab --profile YOUR_PROFILE --region us-east-2
 ```
 
-The main stack has 14 baseline/ingestion resources before schedule binding and 18 after its Scheduler/group/role/DLQ are created. On 2026-11-26 a read-only reference-environment check found UPDATE_COMPLETE, 14 resources and no Scheduler resources/parameters. The schedule code therefore was not deployed or running there. This observation is a dated acceptance record, not a guarantee about another account or a future change. No live schedule is created by editing docs or pushing Git.
+The main stack has 14 baseline/ingestion resources before schedule binding and 18 after its Scheduler/group/role/DLQ are created. An early read-only check on 2026-11-26 found 14 resources and no Scheduler. A subsequent authorized setup deployment completed with UPDATE_COMPLETE and 18 resources, a successful Sync with zero document failures, and a passing filtered Retrieve smoke check. Scheduler is now ENABLED for Sunday 03:00 Africa/Cairo in that reference environment. Live target IDs, role policy/trust and encrypted fourteen-day DLQ were verified. The future weekly execution has not yet been observed. These are dated acceptance records, not guarantees about another account; pushing Git alone does not deploy resources.
 
 ## Verify scheduling
 
@@ -67,6 +67,7 @@ Inspect API/Lambda errors and Bedrock usage together for timeouts. The 30-second
 - Transformation failure: inspect Lambda logs and actual parsed JSON. Supported text types are TEXT/PLAIN_TEXT; schema, sizes, metadata and original URI must match the contract.
 - COMPLETE with failed documents: read failureReasons and failed count. This is not accepted indexing success.
 - Empty Retrieve: inspect ingestion/output/count/filter types and index refresh before altering chunking. Unsupported queries can return semantic neighbours; refusal is application logic.
+- Scheduler creation rejects missing KnowledgeBaseId/DataSourceId: the universal target requires PascalCase input keys `KnowledgeBaseId` and `DataSourceId`, even though boto3 Bedrock calls use lower-camel-case keys. Wait for rollback completion, correct the payload and rerun setup against the same stack; do not delete the baseline.
 - Local API_URL error: read ApiEndpoint and restart Flask. A GET to the POST-only endpoint is not an application test. A 403 can be unsigned/wrong-Region/denied execute-api invocation.
 
 ## Rollback and recovery

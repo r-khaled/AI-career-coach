@@ -46,7 +46,7 @@ CloudWatch log references are $0.50/GB ingestion and $0.03/GB-month archived sto
 
 ### Scheduler and SQS
 
-Scheduler is charged per invocation, with a published 14-million/month free allowance and $1/million above it. Five weekly invocations have a gross rate equivalent of $0.000005 and generally cost zero when allowance is available; no event-bus event or API Destination fee is added for this direct Scheduler SDK target. Starting a Sync still incurs any underlying ingestion work. Scheduler is currently code-defined but was absent from the verified reference stack. [Scheduler pricing](https://aws.amazon.com/eventbridge/pricing/).
+Scheduler is charged per invocation, with a published 14-million/month free allowance and $1/million above it. Five weekly invocations have a gross rate equivalent of $0.000005 and generally cost zero when allowance is available; no event-bus event or API Destination fee is added for this direct Scheduler SDK target. Starting a Sync still incurs any underlying ingestion work. Scheduler was deployed and enabled in the reference stack by the authorized setup run on 2026-11-26. [Scheduler pricing](https://aws.amazon.com/eventbridge/pricing/).
 
 The standard SQS DLQ has no compute server charge; requests use $0.40/million after applicable allowance. A healthy schedule sends no DLQ messages. Reads/deletes/polling/retries and request-size units add usage if operated; an empty queue is not assumed to perform periodic polls by itself. The reference scenario assumes no DLQ activity. [SQS pricing](https://aws.amazon.com/sqs/pricing/).
 
