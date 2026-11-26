@@ -62,3 +62,9 @@ constraints. Total-plan hours require deterministic application validation.
 
 References: [Bedrock custom transformation](https://docs.aws.amazon.com/bedrock/latest/userguide/kb-custom-transformation.html),
 [AWS permissions example](https://github.com/aws-samples/amazon-bedrock-samples/blob/main/rag/knowledge-bases/features-examples/utils/knowledge_base.py).
+
+## Optional reproducible setup and weekly Sync
+
+See the [automation runbook](../docs/automation.md) for the read-only preview, guarded setup command and weekly EventBridge Scheduler resources inside the main CloudFormation stack. Existing configured KB resources are reused; new accounts use bucket bootstrap, a separate RAG stack, KB-ID binding, source creation, Sync and a Retrieve smoke check in that order. Weekly scheduling is code added by this release, not an already enabled live resource. No generation or strict application-constraint implementation is implied. Historical checkpoints above describe the earlier manual execution.
+
+The first setup/Sync runs from the CLI; recurring Scheduler calls only StartIngestionJob after resources exist. Schedule state, expression and timezone are main-stack parameters. Moving accounts requires new KB/resource Outputs; the working foundation-model ARN is Region-derived with an empty account field. A future inference-profile ARN must belong to the destination account and have matching IAM grants. See the automation guide before changing model invocation.

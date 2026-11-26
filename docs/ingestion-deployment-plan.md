@@ -86,3 +86,9 @@ The new three-Add UPDATE completed successfully after the caller grant was corre
 ## Real integration supersedes the initial same-bucket recipe
 
 The first three-Add release is historical. The current template owns fourteen resources; two subsequent additions are the separate intermediate bucket and KB-scoped Bedrock Lambda permission. With the present template, bind KnowledgeBaseId BEFORE Sync so SourceArn matches the real KB. The source bucket still holds catalog and ZIP, while fixtures/parsed batches go to LAB_INTERMEDIATE_BUCKET. The adapter supports and preserves real PLAIN_TEXT as well as TEXT. KB/data source were completed through API after explicit user delegation; Sync and Retrieve passed, generation remains pending. Read the current guided runbook rather than replaying stale three-Add reviews.
+
+## Optional reproducible setup and weekly Sync
+
+See the [automation runbook](automation.md) for the read-only preview, guarded setup command and weekly EventBridge Scheduler resources inside the main CloudFormation stack. Existing configured KB resources are reused; new accounts use bucket bootstrap, a separate RAG stack, KB-ID binding, source creation, Sync and a Retrieve smoke check in that order. Weekly scheduling is code added by this release, not an already enabled live resource. No generation or strict application-constraint implementation is implied. Historical checkpoints above describe the earlier manual execution.
+
+The first setup/Sync runs from the CLI; recurring Scheduler calls only StartIngestionJob after resources exist. Schedule state, expression and timezone are main-stack parameters. Moving accounts requires new KB/resource Outputs; the working foundation-model ARN is Region-derived with an empty account field. A future inference-profile ARN must belong to the destination account and have matching IAM grants. See the automation guide before changing model invocation.

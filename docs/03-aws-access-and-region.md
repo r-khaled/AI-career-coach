@@ -112,3 +112,7 @@ A foundation-model ARN has no account ID in its account segment, for example `ar
 [Previous: code](02-code-walkthrough.md) | [Next: cost controls](04-cost-controls.md)
 
 </div>
+
+## Reproducible setup and scheduled refresh
+
+The [automation guide](automation.md) documents first-time CLI setup, guarded CloudFormation updates and weekly EventBridge Scheduler resources in the main stack. The initial setup creates/reuses the KB and performs Sync; Scheduler subsequently calls StartIngestionJob, independently of your machine. Its state/expression/timezone are configurable stack parameters; it is not active in the published live lab yet. A future TypeScript/Terraform rebuild should preserve that ownership and distinguish first-time provisioning, document refresh, and question-time generation. See the same guide for model ARN/account migration, permissions, cost and cleanup. The working application invocation is unchanged.

@@ -188,3 +188,7 @@ The [deployment plan](ingestion-deployment-plan.md) contains build/review/execut
 [Previous: architecture](01-architecture.md) | [Next: access and Region](03-aws-access-and-region.md)
 
 </div>
+
+## Reproducible setup and scheduled refresh
+
+The [automation guide](automation.md) documents first-time CLI setup, guarded CloudFormation updates and weekly EventBridge Scheduler resources in the main stack. The initial setup creates/reuses the KB and performs Sync; Scheduler subsequently calls StartIngestionJob, independently of your machine. Its state/expression/timezone are configurable stack parameters; it is not active in the published live lab yet. A future TypeScript/Terraform rebuild should preserve that ownership and distinguish first-time provisioning, document refresh, and question-time generation. See the same guide for model ARN/account migration, permissions, cost and cleanup. The working application invocation is unchanged.

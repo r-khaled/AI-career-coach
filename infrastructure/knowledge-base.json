@@ -1,0 +1,388 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Optional reproducible RAG stack: new KB, role, source, Titan v2 and OpenSearch Serverless. Creates billable search infrastructure.",
+  "Parameters": {
+    "SourceBucket": {
+      "Type": "String"
+    },
+    "IntermediateBucket": {
+      "Type": "String"
+    },
+    "TransformationArn": {
+      "Type": "String"
+    },
+    "DeploymentPrincipalArn": {
+      "Type": "String"
+    },
+    "CollectionName": {
+      "Type": "String",
+      "AllowedPattern": "[a-z][a-z0-9-]{2,31}",
+      "MaxLength": 32
+    },
+    "KnowledgeBaseName": {
+      "Type": "String"
+    },
+    "EnableDataSource": {
+      "Type": "String",
+      "Default": "false",
+      "AllowedValues": [
+        "true",
+        "false"
+      ],
+      "Description": "Enable only after the main stack is bound to the new KB ID, so Bedrock has invoke permission."
+    }
+  },
+  "Resources": {
+    "EncryptionPolicy": {
+      "Type": "AWS::OpenSearchServerless::SecurityPolicy",
+      "Properties": {
+        "Name": {
+          "Fn::Sub": "${CollectionName}-enc"
+        },
+        "Type": "encryption",
+        "Policy": {
+          "Fn::Sub": "{\"Rules\":[{\"ResourceType\":\"collection\",\"Resource\":[\"collection/${CollectionName}\"]}],\"AWSOwnedKey\":true}"
+        }
+      }
+    },
+    "NetworkPolicy": {
+      "Type": "AWS::OpenSearchServerless::SecurityPolicy",
+      "Properties": {
+        "Name": {
+          "Fn::Sub": "${CollectionName}-net"
+        },
+        "Type": "network",
+        "Policy": {
+          "Fn::Sub": "[{\"Rules\":[{\"ResourceType\":\"collection\",\"Resource\":[\"collection/${CollectionName}\"]}],\"AllowFromPublic\":true}]"
+        }
+      }
+    },
+    "Collection": {
+      "Type": "AWS::OpenSearchServerless::Collection",
+      "DependsOn": [
+        "EncryptionPolicy",
+        "NetworkPolicy"
+      ],
+      "Properties": {
+        "Name": {
+          "Ref": "CollectionName"
+        },
+        "Type": "VECTORSEARCH",
+        "StandbyReplicas": "DISABLED",
+        "Tags": [
+          {
+            "Key": "Application",
+            "Value": "AI-Career-Coach"
+          }
+        ]
+      }
+    },
+    "KnowledgeBaseRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "bedrock.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole",
+              "Condition": {
+                "StringEquals": {
+                  "aws:SourceAccount": {
+                    "Ref": "AWS::AccountId"
+                  }
+                },
+                "ArnLike": {
+                  "aws:SourceArn": {
+                    "Fn::Sub": "arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:knowledge-base/*"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "KnowledgeBaseAccess",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "s3:ListBucket",
+                  "Resource": [
+                    {
+                      "Fn::Sub": "arn:${AWS::Partition}:s3:::${SourceBucket}"
+                    },
+                    {
+                      "Fn::Sub": "arn:${AWS::Partition}:s3:::${IntermediateBucket}"
+                    }
+                  ],
+                  "Condition": {
+                    "StringLike": {
+                      "s3:prefix": [
+                        "internal_courses.md*",
+                        "kb-intermediate",
+                        "kb-intermediate/*"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "s3:GetObject",
+                  "Resource": [
+                    {
+                      "Fn::Sub": "arn:${AWS::Partition}:s3:::${SourceBucket}/internal_courses.md"
+                    },
+                    {
+                      "Fn::Sub": "arn:${AWS::Partition}:s3:::${SourceBucket}/internal_courses.md.metadata.json"
+                    }
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:GetObject",
+                    "s3:PutObject",
+                    "s3:DeleteObject"
+                  ],
+                  "Resource": {
+                    "Fn::Sub": "arn:${AWS::Partition}:s3:::${IntermediateBucket}/kb-intermediate/*"
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "lambda:InvokeFunction",
+                  "Resource": [
+                    {
+                      "Ref": "TransformationArn"
+                    },
+                    {
+                      "Fn::Sub": "${TransformationArn}:$LATEST"
+                    }
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "bedrock:InvokeModel",
+                  "Resource": {
+                    "Fn::Sub": "arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v2:0"
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "aoss:APIAccessAll",
+                  "Resource": {
+                    "Fn::GetAtt": [
+                      "Collection",
+                      "Arn"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "RoleName": {
+          "Fn::Sub": "AmazonBedrockExecutionRoleForKnowledgeBase_${CollectionName}"
+        }
+      }
+    },
+    "DataAccessPolicy": {
+      "Type": "AWS::OpenSearchServerless::AccessPolicy",
+      "Properties": {
+        "Name": {
+          "Fn::Sub": "${CollectionName}-data"
+        },
+        "Type": "data",
+        "Policy": {
+          "Fn::Sub": "[{\"Rules\":[{\"ResourceType\":\"collection\",\"Resource\":[\"collection/${CollectionName}\"],\"Permission\":[\"aoss:DescribeCollectionItems\"]},{\"ResourceType\":\"index\",\"Resource\":[\"index/${CollectionName}/*\"],\"Permission\":[\"aoss:DescribeIndex\",\"aoss:ReadDocument\",\"aoss:WriteDocument\"]}],\"Principal\":[\"${KnowledgeBaseRole.Arn}\"]},{\"Rules\":[{\"ResourceType\":\"collection\",\"Resource\":[\"collection/${CollectionName}\"],\"Permission\":[\"aoss:DescribeCollectionItems\"]},{\"ResourceType\":\"index\",\"Resource\":[\"index/${CollectionName}/*\"],\"Permission\":[\"aoss:CreateIndex\",\"aoss:UpdateIndex\",\"aoss:DeleteIndex\",\"aoss:DescribeIndex\",\"aoss:ReadDocument\",\"aoss:WriteDocument\"]}],\"Principal\":[\"${DeploymentPrincipalArn}\"]}]"
+        }
+      }
+    },
+    "VectorIndex": {
+      "Type": "AWS::OpenSearchServerless::Index",
+      "DependsOn": "DataAccessPolicy",
+      "Properties": {
+        "CollectionEndpoint": {
+          "Fn::GetAtt": [
+            "Collection",
+            "CollectionEndpoint"
+          ]
+        },
+        "IndexName": "career-courses",
+        "Settings": {
+          "Index": {
+            "Knn": true
+          }
+        },
+        "Mappings": {
+          "Properties": {
+            "vector": {
+              "Type": "knn_vector",
+              "Dimension": 1024,
+              "DataType": "float",
+              "Method": {
+                "Engine": "faiss",
+                "Name": "hnsw",
+                "SpaceType": "l2",
+                "Parameters": {
+                  "EfConstruction": 512,
+                  "M": 16
+                }
+              }
+            },
+            "text": {
+              "Type": "text"
+            },
+            "metadata": {
+              "Type": "text",
+              "Index": false
+            }
+          }
+        }
+      }
+    },
+    "KnowledgeBase": {
+      "Type": "AWS::Bedrock::KnowledgeBase",
+      "DependsOn": "VectorIndex",
+      "Properties": {
+        "Name": {
+          "Ref": "KnowledgeBaseName"
+        },
+        "Description": "Course-aware custom chunking; Titan v2 float embeddings, 1024 dimensions.",
+        "RoleArn": {
+          "Fn::GetAtt": [
+            "KnowledgeBaseRole",
+            "Arn"
+          ]
+        },
+        "KnowledgeBaseConfiguration": {
+          "Type": "VECTOR",
+          "VectorKnowledgeBaseConfiguration": {
+            "EmbeddingModelArn": {
+              "Fn::Sub": "arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v2:0"
+            },
+            "EmbeddingModelConfiguration": {
+              "BedrockEmbeddingModelConfiguration": {
+                "Dimensions": 1024,
+                "EmbeddingDataType": "FLOAT32"
+              }
+            }
+          }
+        },
+        "StorageConfiguration": {
+          "Type": "OPENSEARCH_SERVERLESS",
+          "OpensearchServerlessConfiguration": {
+            "CollectionArn": {
+              "Fn::GetAtt": [
+                "Collection",
+                "Arn"
+              ]
+            },
+            "VectorIndexName": "career-courses",
+            "FieldMapping": {
+              "VectorField": "vector",
+              "TextField": "text",
+              "MetadataField": "metadata"
+            }
+          }
+        }
+      }
+    },
+    "CoursesDataSource": {
+      "Type": "AWS::Bedrock::DataSource",
+      "Properties": {
+        "KnowledgeBaseId": {
+          "Ref": "KnowledgeBase"
+        },
+        "Name": "internal-courses",
+        "DataDeletionPolicy": "DELETE",
+        "DataSourceConfiguration": {
+          "Type": "S3",
+          "S3Configuration": {
+            "BucketArn": {
+              "Fn::Sub": "arn:${AWS::Partition}:s3:::${SourceBucket}"
+            },
+            "InclusionPrefixes": [
+              "internal_courses.md"
+            ]
+          }
+        },
+        "VectorIngestionConfiguration": {
+          "ChunkingConfiguration": {
+            "ChunkingStrategy": "NONE"
+          },
+          "CustomTransformationConfiguration": {
+            "IntermediateStorage": {
+              "S3Location": {
+                "URI": {
+                  "Fn::Sub": "s3://${IntermediateBucket}/kb-intermediate/"
+                }
+              }
+            },
+            "Transformations": [
+              {
+                "StepToApply": "POST_CHUNKING",
+                "TransformationFunction": {
+                  "TransformationLambdaConfiguration": {
+                    "LambdaArn": {
+                      "Ref": "TransformationArn"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "Condition": "CreateDataSource"
+    }
+  },
+  "Outputs": {
+    "KnowledgeBaseId": {
+      "Value": {
+        "Ref": "KnowledgeBase"
+      }
+    },
+    "DataSourceId": {
+      "Value": {
+        "Fn::GetAtt": [
+          "CoursesDataSource",
+          "DataSourceId"
+        ]
+      },
+      "Condition": "CreateDataSource"
+    },
+    "CollectionArn": {
+      "Value": {
+        "Fn::GetAtt": [
+          "Collection",
+          "Arn"
+        ]
+      }
+    },
+    "KnowledgeBaseRoleArn": {
+      "Value": {
+        "Fn::GetAtt": [
+          "KnowledgeBaseRole",
+          "Arn"
+        ]
+      }
+    }
+  },
+  "Conditions": {
+    "CreateDataSource": {
+      "Fn::Equals": [
+        {
+          "Ref": "EnableDataSource"
+        },
+        "true"
+      ]
+    }
+  }
+}

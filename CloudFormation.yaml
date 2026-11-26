@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'AI Career Coach - application and custom ingestion (Knowledge Base via Console)'
+Description: 'AI Career Coach - application and custom ingestion (Knowledge Base via Console or separate automation)'
 
 Parameters:
   FoundationModelId:
@@ -13,7 +13,25 @@ Parameters:
   KnowledgeBaseId:
     Type: String
     Default: 'UPDATE_AFTER_KB_CREATION'
-    Description: Set after creating and syncing the Knowledge Base through the Console
+    Description: Set after Knowledge Base creation and before Sync to scope the ingestion invoke permission
+
+  KnowledgeBaseDataSourceId:
+    Type: String
+    Default: NOT_CONFIGURED
+    AllowedPattern: 'NOT_CONFIGURED|[A-Za-z0-9]{10}'
+    Description: Bind after KB/source creation to provision the Scheduler resources in this stack
+  SyncScheduleState:
+    Type: String
+    Default: DISABLED
+    AllowedValues: [ENABLED, DISABLED]
+  SyncScheduleExpression:
+    Type: String
+    Default: 'cron(0 3 ? * SUN *)'
+    Description: EventBridge Scheduler cron or rate expression (weekly Sunday 03:00 by default)
+  SyncScheduleTimezone:
+    Type: String
+    Default: Africa/Cairo
+    Description: IANA timezone used by the schedule
 
   IngestionCodeS3Key:
     Type: String
@@ -21,6 +39,11 @@ Parameters:
   IngestionCodeS3ObjectVersion:
     Type: String
     Description: Exact S3 object version returned when uploading the ingestion ZIP
+
+Conditions:
+  HasSyncBinding: !And
+    - !Not [!Equals [!Ref KnowledgeBaseId, UPDATE_AFTER_KB_CREATION]]
+    - !Not [!Equals [!Ref KnowledgeBaseDataSourceId, NOT_CONFIGURED]]
 
 Resources:
   # S3 Bucket for Knowledge Base Documents
@@ -106,7 +129,7 @@ Resources:
                   - dynamodb:PutItem
                 Resource: !GetAtt CareerPlansTable.Arn
 
-  # Lambda Function (KB ID will be added manually after KB creation)
+  # Lambda Function (KB ID is bound through a stack update after KB creation)
   CareerCoachFunction:
     Type: AWS::Lambda::Function
     Properties:
@@ -382,6 +405,83 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${CareerCoachAPI}/prod/POST/generate-plan'
 
+  # First-time setup is handled by ingestion.setup_lab; these resources run subsequent Sync jobs.
+  WeeklySyncGroup:
+    Type: AWS::Scheduler::ScheduleGroup
+    Condition: HasSyncBinding
+  WeeklySyncDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      SqsManagedSseEnabled: true
+      MessageRetentionPeriod: 1209600
+    Condition: HasSyncBinding
+  WeeklySyncExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: scheduler.amazonaws.com
+          Action: sts:AssumeRole
+          Condition:
+            StringEquals:
+              aws:SourceAccount:
+                Ref: AWS::AccountId
+            ArnEquals:
+              aws:SourceArn:
+                Fn::GetAtt:
+                - WeeklySyncGroup
+                - Arn
+      Policies:
+      - PolicyName: StartThisDataSourceSync
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action: bedrock:StartIngestionJob
+            Resource:
+              Fn::Sub: arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:knowledge-base/${KnowledgeBaseId}
+          - Effect: Allow
+            Action: sqs:SendMessage
+            Resource:
+              Fn::GetAtt:
+              - WeeklySyncDeadLetterQueue
+              - Arn
+    Condition: HasSyncBinding
+  WeeklyKnowledgeBaseSync:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      GroupName:
+        Ref: WeeklySyncGroup
+      State:
+        Ref: SyncScheduleState
+      ScheduleExpression:
+        Ref: SyncScheduleExpression
+      ScheduleExpressionTimezone:
+        Ref: SyncScheduleTimezone
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn:
+          Fn::Sub: arn:${AWS::Partition}:scheduler:::aws-sdk:bedrockagent:startIngestionJob
+        RoleArn:
+          Fn::GetAtt:
+          - WeeklySyncExecutionRole
+          - Arn
+        Input:
+          Fn::Sub: '{"knowledgeBaseId":"${KnowledgeBaseId}","dataSourceId":"${KnowledgeBaseDataSourceId}"}'
+        RetryPolicy:
+          MaximumEventAgeInSeconds: 3600
+          MaximumRetryAttempts: 2
+        DeadLetterConfig:
+          Arn:
+            Fn::GetAtt:
+            - WeeklySyncDeadLetterQueue
+            - Arn
+    Condition: HasSyncBinding
+
 Outputs:
   IngestionFunctionName:
     Description: Custom chunking function used only during Knowledge Base Sync
@@ -439,5 +539,29 @@ Outputs:
     Value: |
       1. Upload internal_courses.md to S3 bucket
       2. Create KB via Console: default parser, NONE, ingestion transformation ARN and intermediate URI from Outputs; source catalog only
-      3. Sync and validate Retrieve, then update KnowledgeBaseId while preserving both ingestion artifact parameters
+      3. Update KnowledgeBaseId before Sync, preserving both artifact parameters; then Sync and validate Retrieve
       4. Test with an IAM-signed request (the caller needs execute-api:Invoke)
+  SyncScheduleName:
+    Condition: HasSyncBinding
+    Value:
+      Ref: WeeklyKnowledgeBaseSync
+  SyncScheduleGroup:
+    Condition: HasSyncBinding
+    Value:
+      Ref: WeeklySyncGroup
+  SyncDeadLetterQueueUrl:
+    Condition: HasSyncBinding
+    Value:
+      Ref: WeeklySyncDeadLetterQueue
+  SyncScheduleState:
+    Condition: HasSyncBinding
+    Value:
+      Ref: SyncScheduleState
+  SyncScheduleExpression:
+    Condition: HasSyncBinding
+    Value:
+      Ref: SyncScheduleExpression
+  SyncScheduleTimezone:
+    Condition: HasSyncBinding
+    Value:
+      Ref: SyncScheduleTimezone

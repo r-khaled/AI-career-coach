@@ -220,7 +220,7 @@ Application Lambda code remains inline (`index.lambda_handler`). The ingestion c
 
 Build locally, upload under `lambda-artifacts/<sha256>.zip` in the existing versioned bucket, and pass `IngestionCodeS3Key` plus `IngestionCodeS3ObjectVersion`. The template derives bucket/source/intermediate values from its own references; the packaging helper derives examples from selected Region/stack and actual Outputs. No account or credentials are embedded in the public template. Changing a ZIP at a fixed key alone does not trigger a code update; pin key/version explicitly.
 
-This is an UPDATE to an existing baseline. A new account needs a bootstrap/source bucket before uploading its deployment artifact; the current template cannot create its own not-yet-uploaded artifact in a single step. Do not present this as a one-command fresh-account deployment. No CI/CD or scheduler is required for the lab.
+This is an UPDATE to an existing baseline. A new account needs a bootstrap/source bucket before uploading its deployment artifact; the current template cannot create its own not-yet-uploaded artifact in a single step. The optional [automation wrapper](automation.md) now performs that bootstrap explicitly; the main template alone still cannot do it. The fresh-account automation path has local validation only. No CI/CD pipeline is required.
 
 Two independent lifecycles remain: change infrastructure/code through reviewed CloudFormation updates; update source documents and Sync to refresh knowledge. Deploying Lambda does not create a KB, start Sync or validate retrieval.
 
@@ -245,3 +245,39 @@ Local schema/contract tests and ZIP validation establish local readiness. A depl
 After the user delegated the remainder, KB creation/data-source setup, real Sync and retrieval checks were completed using the existing vector store. The actual configuration uses the output ARN and separate intermediate bucket. The application KB parameter is connected; generation and strict UI/backend constraints remain pending. Inspect actual parser output and 40 course IDs/metadata, then run unfiltered and strict-filter Retrieve tests before generation. Record actual settings without retroactively declaring planned steps complete.
 
 [Learning plan](00-learning-plan.md) · [Code walkthrough](02-code-walkthrough.md)
+
+## 9. Reproducible setup and scheduled knowledge refresh
+
+The setup command provisions the first environment and runs its initial Sync/filtered Retrieve check synchronously. EventBridge Scheduler does **not** create the KB or run infrastructure migrations on its first Sunday: it calls StartIngestionJob against resources already prepared by setup. Together, the setup entry point and recurring schedule provide first-use initialization and subsequent knowledge refresh. No extra driver Lambda or GitHub Actions pipeline is required.
+
+Scheduler is defined **inside the main `CloudFormation.yaml`**, along with its execution role, schedule group and encrypted SQS DLQ. The main stack keeps its fourteen baseline resources until `KnowledgeBaseId` and `KnowledgeBaseDataSourceId` are bound; then its four conditional Scheduler resources bring it to eighteen. `SyncScheduleState` defaults DISABLED; `--enable-schedule` opts in. `SyncScheduleExpression` defaults to Sunday 03:00 and `SyncScheduleTimezone` defaults Africa/Cairo; the setup command can change either and preserves existing settings unless explicitly overridden. An existing enabled schedule remains active during later setup runs; disable it deliberately for maintenance if needed.
+
+The role trusts Scheduler for this account/schedule-group ARN only, starts ingestion on this KB only, and sends failed target deliveries to its DLQ. The KB service role still performs source/intermediate/model/vector-store work. The transformation role is unchanged. Scheduled API acceptance does not prove documents indexed successfully: inspect ingestion job statistics as well as delivery metrics/DLQ. No generation is scheduled.
+
+Existing Console/API KB resources stay external; a new account can create KB/role/source/OpenSearch through the separate `infrastructure/knowledge-base.json` RAG stack. This separation handles the sequence KB → bind main-stack permission → create source → initial Sync → bind main-stack Scheduler. It does not import the existing lab KB into CloudFormation. See the [automation runbook](automation.md) for exact commands, ownership and cleanup.
+
+No new cloud resources or schedules were created while publishing this automation. New templates were schema-validated and wrapper behavior tested locally; fresh-account provisioning and the scheduled target still require live acceptance testing.
+
+```mermaid
+flowchart TB
+    setup["CLI setup: first Sync + Retrieve"]:::new
+    stack["Main stack: Scheduler resources"]:::existing
+    schedule["Weekly EventBridge Scheduler"]:::new
+    start["Bedrock StartIngestionJob"]:::external
+    dlq["SQS: failed API deliveries"]:::new
+    ingest["Source + parser + transform Lambda"]:::new
+    index["Titan embeddings + OpenSearch"]:::external
+    setup -->|"bind KB/source IDs"| stack
+    stack -->|"manage cron, state, timezone"| schedule
+    schedule -->|"weekly API request"| start
+    schedule -->|"exhausted delivery retries"| dlq
+    start -->|"accepted asynchronous job"| ingest
+    ingest -->|"complete course evidence"| index
+    classDef existing fill:#eaf3ed,stroke:#356247,color:#172e20;
+    classDef new fill:#eaf0ff,stroke:#365b9d,color:#142c52;
+    classDef external fill:#fff4db,stroke:#947133,color:#4d3814;
+```
+
+## 10. Model invocation portability
+
+The working handler and its IAM/model selection are preserved. MODEL_ARN currently references an AWS-owned foundation-model ARN built from the stack Region and FoundationModelId, with an empty account field. KB ARNs instead contain the destination account via AWS::AccountId. This is not a literal owner account embedded in the model ARN. A future inference-profile-based model choice may need a destination-account profile ARN and additional model/profile IAM grants; make that a deliberate parameterized change and retest generation. Do not copy an old-account profile ARN or treat a profile ARN as the current FoundationModelId. See [account migration notes](automation.md#8-moving-to-a-different-account-or-region-modelkb-binding).

@@ -8,7 +8,7 @@ import zipfile
 from ingestion.course_chunker import chunk_catalog
 
 ROOT = Path(__file__).resolve().parents[1]
-def prepare(*, bucket, intermediate_bucket, account_id, region, stack_name, prefix="kb-intermediate/"):
+def prepare(*, bucket, intermediate_bucket, account_id, region, stack_name, prefix="kb-intermediate/", output_dir=None, preview_path=None):
     if bucket == intermediate_bucket:
         raise ValueError("Bedrock requires a separate transformation intermediate bucket")
     BUCKET, PREFIX = intermediate_bucket, prefix
@@ -17,7 +17,7 @@ def prepare(*, bucket, intermediate_bucket, account_id, region, stack_name, pref
     raw = (ROOT / "internal_courses.md").read_bytes()
     source_hash = hashlib.sha256(raw).hexdigest()
     chunks = chunk_catalog(raw.decode("utf-8"))
-    destination = ROOT / ".lab/ingestion-deployment"
+    destination = Path(output_dir) if output_dir else ROOT / ".lab/ingestion-deployment"
     destination.mkdir(parents=True, exist_ok=True)
 
     def write(name, value):
@@ -79,7 +79,7 @@ def prepare(*, bucket, intermediate_bucket, account_id, region, stack_name, pref
                "policy": "course boundaries; zero cross-course overlap; built-in NONE plus custom Lambda",
                "token_counts": "not measured; word and character counts are not tokens",
                **counts, "fileContents": chunks}
-    preview_path = ROOT / ".local-ar/experiments/course-chunking/course-aware-preview.json"
+    preview_path = Path(preview_path) if preview_path else ROOT / ".local-ar/experiments/course-chunking/course-aware-preview.json"
     preview_path.parent.mkdir(parents=True, exist_ok=True)
     preview_path.write_text(json.dumps(preview, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     manifest = {"status": "prepared_locally_not_deployed", "source_sha256": source_hash,
@@ -88,6 +88,7 @@ def prepare(*, bucket, intermediate_bucket, account_id, region, stack_name, pref
                 "region": region, "stack_name": stack_name, "bucket": bucket, "intermediate_bucket": intermediate_bucket, **counts}
     write("manifest.json", manifest)
     print(json.dumps(manifest, indent=2))
+    return manifest
 
 
 if __name__ == "__main__":

@@ -91,3 +91,7 @@ For an effective lab limit, keep a small agreed number of test requests, inspect
 [Previous: access and Region](03-aws-access-and-region.md) | [Next: running the demo](05-run-original-demo.md)
 
 </div>
+
+## Reproducible setup and scheduled refresh
+
+The [automation guide](automation.md) documents first-time CLI setup, guarded CloudFormation updates and weekly EventBridge Scheduler resources in the main stack. The initial setup creates/reuses the KB and performs Sync; Scheduler subsequently calls StartIngestionJob, independently of your machine. Its state/expression/timezone are configurable stack parameters; it is not active in the published live lab yet. A future TypeScript/Terraform rebuild should preserve that ownership and distinguish first-time provisioning, document refresh, and question-time generation. See the same guide for model ARN/account migration, permissions, cost and cleanup. The working application invocation is unchanged.
