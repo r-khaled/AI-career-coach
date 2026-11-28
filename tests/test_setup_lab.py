@@ -120,6 +120,7 @@ class SyncTests(unittest.TestCase):
         s3.put_object.assert_not_called()
 
 
+@patch.object(lab, 'build_application', return_value=('lambda-artifacts/application/test.zip', b'zip'))
 class SetupFlowTests(unittest.TestCase):
     def session(self):
         session = Mock()
@@ -133,7 +134,7 @@ class SetupFlowTests(unittest.TestCase):
         clients["bedrock-agent"].get_paginator.return_value.paginate.return_value = [{"knowledgeBaseSummaries": []}]
         return session, clients
 
-    def test_preview_does_not_deploy_upload_or_sync(self):
+    def test_preview_does_not_deploy_upload_or_sync(self, build):
         session, clients = self.session()
         with tempfile.TemporaryDirectory() as temp, patch.object(lab, "ROOT", Path(temp)), patch.object(lab, "chunk_catalog"), patch.object(Path, "read_text", return_value="catalog"), patch.object(lab.boto3, "Session", return_value=session), patch.object(lab, "stack_or_none", return_value=None), patch.object(lab, "deploy") as deploy, patch.object(lab, "sync") as sync, contextlib.redirect_stdout(io.StringIO()):
             lab.main(["setup", "--region", "us-east-2"])
@@ -141,13 +142,13 @@ class SetupFlowTests(unittest.TestCase):
         sync.assert_not_called()
         clients["s3"].put_object.assert_not_called()
 
-    def test_account_guard_stops_before_cloudformation(self):
+    def test_account_guard_stops_before_cloudformation(self, build):
         session, clients = self.session()
         with patch.object(lab.boto3, "Session", return_value=session), self.assertRaises(RuntimeError):
             lab.main(["setup", "--region", "us-east-2", "--expected-account", "000000000000", "--apply"])
         clients["cloudformation"].create_change_set.assert_not_called()
 
-    def test_existing_kb_is_reused_and_model_parameters_preserved(self):
+    def test_existing_kb_is_reused_and_model_parameters_preserved(self, build):
         session, clients = self.session()
         outputs = {"S3BucketName": "source", "IngestionIntermediateBucketName": "middle", "IngestionFunctionArn": "arn:aws:lambda:us-east-2:123456789012:function:example"}
         current = stack({"KnowledgeBaseId": "EXISTING01", "FoundationModelId": "existing-model", "SyncScheduleState": "ENABLED", "SyncScheduleTimezone": "UTC"}, outputs)
@@ -162,7 +163,7 @@ class SetupFlowTests(unittest.TestCase):
         sync.assert_called_once()
         clients["bedrock-agent"].create_knowledge_base.assert_not_called()
 
-    def test_fresh_setup_binds_permission_before_creating_source_and_sync(self):
+    def test_fresh_setup_binds_permission_before_creating_source_and_sync(self, build):
         session, clients = self.session()
         outputs = {"S3BucketName": "source", "IngestionIntermediateBucketName": "middle", "IngestionFunctionArn": "function"}
         order = []
@@ -180,9 +181,46 @@ class SetupFlowTests(unittest.TestCase):
         self.assertEqual(order[-1][1]["SyncScheduleState"], "ENABLED")
         self.assertEqual(order[-1][1]["KnowledgeBaseDataSourceId"], "SOURCE0001")
 
-    def test_root_is_not_accepted(self):
+    def test_root_is_not_accepted(self, build):
         with self.assertRaises(RuntimeError):
             lab.deployment_principal(Mock(), {"Arn": "arn:aws:iam::123456789012:root"})
+
+    def test_app_release_only_binds_application_artifact(self, build):
+        session, clients = self.session()
+        current = stack({'KnowledgeBaseId': 'EXISTING01'}, {'S3BucketName': 'source'})
+        with tempfile.TemporaryDirectory() as temp, patch.object(lab, 'ROOT', Path(temp)), patch.object(lab.boto3, 'Session', return_value=session), patch.object(lab, 'stack_or_none', return_value=current), patch.object(Path, 'read_text', return_value='template'), patch.object(lab, 'upload_if_changed', return_value='v1') as upload, patch.object(lab, 'deploy', return_value=current) as deploy, patch.object(lab, 'sync') as sync, patch.object(lab, 'validate_kb') as validate, contextlib.redirect_stdout(io.StringIO()):
+            lab.main(['app-release', '--region', 'us-east-2', '--apply'])
+        self.assertEqual(deploy.call_args.args[3], {'ApplicationCodeS3Key': 'lambda-artifacts/application/test.zip', 'ApplicationCodeS3ObjectVersion': 'v1'})
+        self.assertEqual(deploy.call_args.kwargs['allowed_resources'], {'CareerCoachFunction'})
+        upload.assert_called_once()
+        sync.assert_not_called()
+        validate.assert_not_called()
+
+    def test_worker_release_does_not_touch_knowledge_or_application(self, build):
+        session, clients = self.session()
+        current = stack({'KnowledgeBaseId': 'EXISTING01'}, {'S3BucketName': 'source'})
+        with tempfile.TemporaryDirectory() as temp, patch.object(lab, 'ROOT', Path(temp)), \
+                patch.object(lab.boto3, 'Session', return_value=session), \
+                patch.object(lab, 'stack_or_none', return_value=current), \
+                patch.object(Path, 'read_text', return_value='template'), \
+                patch.object(lab, 'upload_if_changed', return_value='v2'), \
+                patch.object(lab, 'deploy', return_value=current) as deploy, \
+                patch.object(lab, 'sync') as sync, patch.object(lab, 'validate_kb') as validate, \
+                contextlib.redirect_stdout(io.StringIO()):
+            lab.main(['worker-release', '--region', 'us-east-2', '--apply'])
+        build.assert_called_once_with(artifact_kind='worker')
+        self.assertEqual(set(deploy.call_args.args[3]), {'WorkerCodeS3Key', 'WorkerCodeS3ObjectVersion'})
+        self.assertEqual(deploy.call_args.kwargs['allowed_resources'], {'GenerationWorkerFunction'})
+        sync.assert_not_called()
+        validate.assert_not_called()
+
+    def test_app_release_preview_does_not_upload(self, build):
+        session, clients = self.session()
+        current = stack(outputs={'S3BucketName': 'source'})
+        with tempfile.TemporaryDirectory() as temp, patch.object(lab, 'ROOT', Path(temp)), patch.object(lab.boto3, 'Session', return_value=session), patch.object(lab, 'stack_or_none', return_value=current), patch.object(lab, 'deploy') as deploy, contextlib.redirect_stdout(io.StringIO()):
+            lab.main(['app-release', '--region', 'us-east-2'])
+        deploy.assert_not_called()
+        clients['s3'].put_object.assert_not_called()
 
 
 class InfrastructureTests(unittest.TestCase):

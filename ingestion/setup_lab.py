@@ -12,6 +12,7 @@ from botocore.exceptions import ClientError
 
 from ingestion.course_chunker import chunk_catalog
 from ingestion.prepare_lab import prepare
+from scripts.package_application import build_application
 
 ROOT = Path(__file__).resolve().parents[1]
 PLACEHOLDER = "UPDATE_AFTER_KB_CREATION"
@@ -47,7 +48,7 @@ def review_changes(changes, allowed_replacements=()):
             raise RuntimeError(f"Refusing replacement of {name}; inspect the saved change set")
 
 
-def deploy(cfn, name, template, parameters, evidence, *, allowed_replacements=(), timeout=2700):
+def deploy(cfn, name, template, parameters, evidence, *, allowed_replacements=(), allowed_resources=None, timeout=2700):
     before = stack_or_none(cfn, name)
     if before and before["StackStatus"] not in READY:
         raise RuntimeError(f"{name}: {before['StackStatus']}; resolve this stack before rerunning")
@@ -85,6 +86,11 @@ def deploy(cfn, name, template, parameters, evidence, *, allowed_replacements=()
     if proposal["Status"] != "CREATE_COMPLETE":
         raise RuntimeError(f"Unexpected change set status: {proposal['Status']}")
     review_changes(changes, allowed_replacements)
+    if allowed_resources is not None:
+        unexpected = [c["ResourceChange"]["LogicalResourceId"] for c in changes
+                      if c["ResourceChange"]["LogicalResourceId"] not in allowed_resources]
+        if unexpected:
+            raise RuntimeError(f"Refusing unrelated application release changes: {unexpected}")
     print(json.dumps({"stack": name, "changes": [c["ResourceChange"] for c in changes]}, default=str))
     cfn.execute_change_set(ChangeSetName=change_id, ClientRequestToken=change_name)
     while time.monotonic() < deadline:
@@ -221,7 +227,7 @@ def deployment_principal(session, caller):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["setup", "sync", "status"])
+    parser.add_argument("action", choices=["setup", "sync", "status", "app-release", "worker-release"])
     parser.add_argument("--region", required=True)
     parser.add_argument("--profile")
     parser.add_argument("--stack-name", default="career-coach-lab")
@@ -238,8 +244,12 @@ def main(argv=None):
         parser.error("stack-name must be 3-31 lowercase letters/digits/hyphens (S3 and AOSS limits)")
     if (args.enable_schedule or args.disable_schedule or args.schedule_timezone or args.schedule_expression) and args.action != "setup":
         parser.error("Schedule options apply only to setup")
+    artifact_release = args.action in {"app-release", "worker-release"}
+    if artifact_release and args.foundation_model_id:
+        parser.error("Artifact releases do not change the foundation model")
     # Validate data before creating any paid resources.
-    chunk_catalog((ROOT / "internal_courses.md").read_text(encoding="utf-8"))
+    if not artifact_release:
+        chunk_catalog((ROOT / "internal_courses.md").read_text(encoding="utf-8"))
     session = boto3.Session(profile_name=args.profile, region_name=args.region)
     if session.get_partition_for_region(args.region) != "aws":
         parser.error("This reference app currently supports the commercial aws partition only")
@@ -262,12 +272,34 @@ def main(argv=None):
     plan = {"account": account, "region": args.region, "stack": args.stack_name,
         "current_status": (current or {}).get("StackStatus", "NOT_CREATED"),
         "source_bucket": source, "intermediate_bucket": middle, "knowledge_base_id": kb_id,
-        "steps": ["fresh stack only: bootstrap buckets", "upload versioned ZIP; deploy main stack", "upload catalog",
-            "reuse configured KB or create RAG stack", "bind KB ID and invocation permission", "Sync and check document failures", "Retrieve smoke check; no generation", "bind data-source ID and add Scheduler to main stack (new schedules disabled unless opted in)"],
+        "steps": (["build " + args.action, "upload versioned runtime artifact", "deploy selected function only"] if artifact_release else ["fresh stack only: bootstrap buckets", "upload versioned ZIP; deploy main stack", "upload catalog",
+            "reuse configured KB or create RAG stack", "bind KB ID and invocation permission", "Sync and check document failures", "Retrieve smoke check; no generation", "bind data-source ID and add Scheduler to main stack (new schedules disabled unless opted in)"]),
         "schedule": {"state": schedule_state, "expression": schedule_expression, "timezone": schedule_timezone},
         "apply": args.apply}
     write_json(evidence / "plan.json", plan)
     print(json.dumps(plan, indent=2))
+    if artifact_release:
+        if not current or current.get("StackStatus") not in READY or not outputs.get("S3BucketName"):
+            raise RuntimeError("Artifact release requires an existing ready main stack and artifact bucket")
+        worker_release = args.action == "worker-release"
+        key, body = build_application(artifact_kind="worker") if worker_release else build_application()
+        prefix = "Worker" if worker_release else "Application"
+        write_json(evidence / (prefix.lower() + ".json"), {"artifact_s3_key": key, "sha256": hashlib.sha256(body).hexdigest()})
+        if not args.apply:
+            print("Read-only runtime artifact release preview finished. Evidence: " + str(evidence))
+            return
+        s3 = session.client("s3")
+        location = s3.get_bucket_location(Bucket=source).get("LocationConstraint") or "us-east-1"
+        location = "eu-west-1" if location == "EU" else location
+        if location != args.region or s3.get_bucket_versioning(Bucket=source).get("Status") != "Enabled":
+            raise RuntimeError(f"Bucket {source}: Region/versioning mismatch")
+        version = upload_if_changed(s3, source, key, body)
+        current = deploy(cfn, args.stack_name, (ROOT / "CloudFormation.yaml").read_text(),
+            {prefix + "CodeS3Key": key, prefix + "CodeS3ObjectVersion": version}, evidence,
+            allowed_resources={"GenerationWorkerFunction" if worker_release else "CareerCoachFunction"})
+        write_json(evidence / "result.json", {prefix.lower() + "_artifact_key": key,
+            prefix.lower() + "_artifact_version": version, "outputs": values(current, "Output")})
+        return
     agent = session.client("bedrock-agent")
     ds_id = None
     pending_source = False
@@ -317,6 +349,12 @@ def main(argv=None):
         stack_name=args.stack_name, output_dir=evidence / "package", preview_path=evidence / "chunks.json")
     artifact_version = upload_if_changed(s3, source, manifest["artifact_s3_key"], (evidence / "package/course-transform.zip").read_bytes())
     desired = {"IngestionCodeS3Key": manifest["artifact_s3_key"], "IngestionCodeS3ObjectVersion": artifact_version}
+    application_key, application_body = build_application()
+    application_version = upload_if_changed(s3, source, application_key, application_body)
+    desired.update({"ApplicationCodeS3Key": application_key, "ApplicationCodeS3ObjectVersion": application_version})
+    worker_key, worker_body = build_application(artifact_kind="worker")
+    worker_version = upload_if_changed(s3, source, worker_key, worker_body)
+    desired.update({"WorkerCodeS3Key": worker_key, "WorkerCodeS3ObjectVersion": worker_version})
     if args.foundation_model_id:
         desired["FoundationModelId"] = args.foundation_model_id
     main_template = (ROOT / "CloudFormation.yaml").read_text()

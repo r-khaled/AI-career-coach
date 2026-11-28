@@ -2,6 +2,10 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: 'AI Career Coach - IAM-protected application, course ingestion and scheduled knowledge refresh'
 
 Parameters:
+  ExistingSessionsTableName:
+    Type: String
+    Default: ''
+    Description: Optional retained session table name after an explicitly reviewed resource import
   FoundationModelId:
     Type: String
     Default: 'amazon.nova-lite-v1:0'
@@ -10,6 +14,32 @@ Parameters:
       - 'amazon.nova-lite-v1:0'
       - 'anthropic.claude-sonnet-4-5-20250929-v1:0'
       - 'anthropic.claude-haiku-4-5-20251001-v1:0'
+  IntakeModelId:
+    Type: String
+    Default: anthropic.claude-haiku-4-5-20251001-v1:0
+    Description: Candidate model ID or full inference-profile ARN; verify runtime access before activation
+  IntakeDestinationModelArns:
+    Type: CommaDelimitedList
+    Default: NOT_CONFIGURED
+    Description: Exact foundation-model destination ARNs required by the selected inference profile
+  PlannerModelId:
+    Type: String
+    Default: anthropic.claude-haiku-4-5-20251001-v1:0
+    Description: Planner candidate model ID or full inference-profile ARN
+  PlannerDestinationModelArns:
+    Type: CommaDelimitedList
+    Default: NOT_CONFIGURED
+    Description: Exact foundation-model ARNs for every selected profile destination Region
+  SerperSecretArn:
+    Type: String
+    Default: NOT_CONFIGURED
+    AllowedPattern: 'NOT_CONFIGURED|arn:aws:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:[A-Za-z0-9/_+=.@-]+'
+    Description: Existing Serper secret ARN only; never pass plaintext key material
+  GuidedEnabled:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: Explicitly enable guided routes and consumers only after authorized acceptance
   KnowledgeBaseId:
     Type: String
     Default: 'UPDATE_AFTER_KB_CREATION'
@@ -33,6 +63,19 @@ Parameters:
     Default: Africa/Cairo
     Description: IANA timezone used by the schedule
 
+  ApplicationCodeS3Key:
+    Type: String
+    Description: Content-addressed application ZIP key under lambda-artifacts/
+  ApplicationCodeS3ObjectVersion:
+    Type: String
+    Description: Exact uploaded application ZIP object version
+  WorkerCodeS3Key:
+    Type: String
+    Description: Independent content-addressed worker ZIP key under lambda-artifacts/worker/
+  WorkerCodeS3ObjectVersion:
+    Type: String
+    Description: Exact uploaded worker ZIP object version
+
   IngestionCodeS3Key:
     Type: String
     Description: Versioned ingestion ZIP key under lambda-artifacts/ in the existing stack bucket
@@ -41,6 +84,13 @@ Parameters:
     Description: Exact S3 object version returned when uploading the ingestion ZIP
 
 Conditions:
+  HasExistingSessionsTable: !Not [!Equals [!Ref ExistingSessionsTableName, '']]
+  EnableGuided: !Equals [!Ref GuidedEnabled, 'true']
+  PlannerIsArn: !Equals [!Select [0, !Split [':', !Ref PlannerModelId]], arn]
+  HasPlannerDestinations: !Not [!Equals [!Join [',', !Ref PlannerDestinationModelArns], NOT_CONFIGURED]]
+  HasSerperSecret: !Not [!Equals [!Ref SerperSecretArn, NOT_CONFIGURED]]
+  IntakeIsArn: !Equals [!Select [0, !Split [':', !Ref IntakeModelId]], arn]
+  HasIntakeDestinations: !Not [!Equals [!Join [',', !Ref IntakeDestinationModelArns], NOT_CONFIGURED]]
   HasSyncBinding: !And
     - !Not [!Equals [!Ref KnowledgeBaseId, UPDATE_AFTER_KB_CREATION]]
     - !Not [!Equals [!Ref KnowledgeBaseDataSourceId, NOT_CONFIGURED]]
@@ -65,6 +115,33 @@ Resources:
       Tags:
         - Key: Application
           Value: AI-Career-Coach
+
+  SessionsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: !If [HasExistingSessionsTable, !Ref ExistingSessionsTableName, !Ref AWS::NoValue]
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      StreamSpecification:
+        StreamViewType: NEW_IMAGE
 
   # DynamoDB Table for Career Plans
   CareerPlansTable:
@@ -120,6 +197,29 @@ Resources:
                 Action:
                   - bedrock:RetrieveAndGenerate
                 Resource: '*'
+        - PolicyName: IntakeModelAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: bedrock:InvokeModel
+                Resource: !If [IntakeIsArn, !Ref IntakeModelId, !Sub 'arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/${IntakeModelId}']
+              - Effect: Allow
+                Action: bedrock:InvokeModel
+                Resource: !Sub 'arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:project/default'
+              - !If
+                - HasIntakeDestinations
+                - Effect: Allow
+                  Action: bedrock:InvokeModel
+                  Resource: !Ref IntakeDestinationModelArns
+                - !Ref AWS::NoValue
+        - PolicyName: SessionStateAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [dynamodb:GetItem, dynamodb:PutItem, dynamodb:UpdateItem, dynamodb:DeleteItem]
+                Resource: !GetAtt SessionsTable.Arn
         - PolicyName: DynamoDBAccess
           PolicyDocument:
             Version: '2012-10-17'
@@ -127,7 +227,25 @@ Resources:
               - Effect: Allow
                 Action:
                   - dynamodb:PutItem
+                  - dynamodb:GetItem
                 Resource: !GetAtt CareerPlansTable.Arn
+        - PolicyName: DispatchJobs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: sqs:SendMessage
+                Resource: !GetAtt GenerationQueue.Arn
+              - Effect: Allow
+                Action: [dynamodb:DescribeStream, dynamodb:GetRecords, dynamodb:GetShardIterator]
+                Resource: !GetAtt SessionsTable.StreamArn
+              - Effect: Allow
+                Action: dynamodb:ListStreams
+                # ListStreams is a list action without a resource type in SAR.
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    aws:RequestedRegion: !Ref AWS::Region
 
   # Lambda Function (KB ID is bound through a stack update after KB creation)
   CareerCoachFunction:
@@ -135,7 +253,7 @@ Resources:
     Properties:
       FunctionName: !Sub '${AWS::StackName}-handler'
       Runtime: python3.12
-      Handler: index.lambda_handler
+      Handler: career_coach.handler.lambda_handler
       Role: !GetAtt LambdaExecutionRole.Arn
       Timeout: 60
       MemorySize: 512
@@ -143,124 +261,160 @@ Resources:
         Variables:
           KNOWLEDGE_BASE_ID: !Ref KnowledgeBaseId
           DYNAMODB_TABLE: !Ref CareerPlansTable
+          SESSIONS_TABLE: !Ref SessionsTable
+          INTAKE_MODEL_ID: !Ref IntakeModelId
+          GENERATION_QUEUE_URL: !Ref GenerationQueue
           MODEL_ARN: !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/${FoundationModelId}'
       Code:
-        ZipFile: |
-          import json
-          import boto3
-          import os
-          from datetime import datetime
-          import uuid
+        S3Bucket: !Ref KnowledgeBaseDataBucket
+        S3Key: !Ref ApplicationCodeS3Key
+        S3ObjectVersion: !Ref ApplicationCodeS3ObjectVersion
 
-          bedrock_agent = boto3.client('bedrock-agent-runtime')
-          dynamodb = boto3.resource('dynamodb')
-          table = dynamodb.Table(os.environ['DYNAMODB_TABLE'])
-
-          def lambda_handler(event, context):
-              try:
-                  # Parse input
-                  body = json.loads(event.get('body', '{}'))
-                  current_role = body.get('current_role', '')
-                  goal = body.get('goal', '')
-                  user_id = body.get('user_id', str(uuid.uuid4()))
-                  
-                  if not current_role or not goal:
-                      return {
-                          'statusCode': 400,
-                          'headers': {'Content-Type': 'application/json'},
-                          'body': json.dumps({'error': 'current_role and goal are required'})
-                      }
-                  
-                  # Create prompt
-                  prompt = f"""You are an expert career coach. Create a personalized career development plan.
-
-          Current Role: {current_role}
-          Career Goal: {goal}
-
-          Provide a comprehensive career development plan that includes:
-          1. Recommended internal training courses (from the knowledge base)
-          2. Key skills to develop
-          3. Suggested timeline (3-6 months)
-          4. Additional certifications or learning resources
-
-          Be specific and actionable."""
-
-                  # Call Bedrock Knowledge Base
-                  kb_id = os.environ.get('KNOWLEDGE_BASE_ID')
-                  
-                  if not kb_id or kb_id == 'UPDATE_AFTER_KB_CREATION':
-                      return {
-                          'statusCode': 500,
-                          'headers': {'Content-Type': 'application/json'},
-                          'body': json.dumps({
-                              'error': 'Knowledge Base ID not configured. Please update Lambda environment variable.'
-                          })
-                      }
-                  
-                  # Try with retrieval configuration
-                  response = bedrock_agent.retrieve_and_generate(
-                      input={'text': prompt},
-                      retrieveAndGenerateConfiguration={
-                          'type': 'KNOWLEDGE_BASE',
-                          'knowledgeBaseConfiguration': {
-                              'knowledgeBaseId': kb_id,
-                              'modelArn': os.environ['MODEL_ARN'],
-                              'generationConfiguration': {
-                                  'inferenceConfig': {
-                                      'textInferenceConfig': {
-                                          'maxTokens': 800
-                                      }
-                                  }
-                              },
-                              'retrievalConfiguration': {
-                                  'vectorSearchConfiguration': {
-                                      'numberOfResults': 5
-                                  }
-                              }
-                          }
-                      }
-                  )
-                  
-                  # Extract response
-                  generated_text = response['output']['text']
-                  citations = response.get('citations', [])
-                  
-                  # Save to DynamoDB
-                  timestamp = datetime.utcnow().isoformat()
-                  table.put_item(Item={
-                      'user_id': user_id,
-                      'timestamp': timestamp,
-                      'current_role': current_role,
-                      'goal': goal,
-                      'career_plan': generated_text,
-                      'citations': citations
-                  })
-                  
-                  return {
-                      'statusCode': 200,
-                      'headers': {
-                          'Content-Type': 'application/json',
-                          'Access-Control-Allow-Origin': '*'
-                      },
-                      'body': json.dumps({
-                          'user_id': user_id,
-                          'current_role': current_role,
-                          'goal': goal,
-                          'career_plan': generated_text,
-                          'citations': citations,
-                          'timestamp': timestamp
-                      }, indent=2)
-                  }
-                  
-              except Exception as e:
-                  print(f"Error: {str(e)}")
-                  import traceback
-                  print(traceback.format_exc())
-                  return {
-                      'statusCode': 500,
-                      'headers': {'Content-Type': 'application/json'},
-                      'body': json.dumps({'error': str(e)})
-                  }
+  GenerationDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      SqsManagedSseEnabled: true
+      MessageRetentionPeriod: 1209600
+  GenerationQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      SqsManagedSseEnabled: true
+      VisibilityTimeout: 1080
+      MessageRetentionPeriod: 604800
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt GenerationDeadLetterQueue.Arn
+        maxReceiveCount: 5
+  GenerationQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues: [!Ref GenerationQueue]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Deny
+            Principal: '*'
+            Action: sqs:*
+            Resource: !GetAtt GenerationQueue.Arn
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+  GenerationDeadLetterQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues: [!Ref GenerationDeadLetterQueue]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Deny
+            Principal: '*'
+            Action: sqs:*
+            Resource: !GetAtt GenerationDeadLetterQueue.Arn
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+  GenerationWorkerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: WorkerRuntime
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${AWS::StackName}-generation-worker:*'
+              - Effect: Allow
+                Action: [sqs:ReceiveMessage, sqs:DeleteMessage, sqs:GetQueueAttributes, sqs:ChangeMessageVisibility]
+                Resource: !GetAtt GenerationQueue.Arn
+              - Effect: Allow
+                Action: [dynamodb:GetItem, dynamodb:PutItem]
+                Resource: [!GetAtt SessionsTable.Arn, !GetAtt CareerPlansTable.Arn]
+              - Effect: Allow
+                Action: dynamodb:ConditionCheckItem
+                Resource: !GetAtt SessionsTable.Arn
+              - Effect: Allow
+                Action: bedrock:Retrieve
+                Resource: !Sub 'arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:knowledge-base/${KnowledgeBaseId}'
+              - Effect: Allow
+                Action: bedrock:InvokeModel
+                Resource: !If [PlannerIsArn, !Ref PlannerModelId, !Sub 'arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/${PlannerModelId}']
+              - Effect: Allow
+                Action: bedrock:InvokeModel
+                Resource: !Sub 'arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:project/default'
+              - !If
+                - HasPlannerDestinations
+                - Effect: Allow
+                  Action: bedrock:InvokeModel
+                  Resource: !Ref PlannerDestinationModelArns
+                - !Ref AWS::NoValue
+              - !If
+                - HasSerperSecret
+                - Effect: Allow
+                  Action: secretsmanager:GetSecretValue
+                  Resource: !Ref SerperSecretArn
+                - !Ref AWS::NoValue
+  GenerationWorkerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-generation-worker'
+      RetentionInDays: 7
+  GenerationWorkerFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: GenerationWorkerLogGroup
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-generation-worker'
+      Runtime: python3.12
+      Handler: career_coach.worker.lambda_handler
+      Architectures: [x86_64]
+      Role: !GetAtt GenerationWorkerRole.Arn
+      Timeout: 180
+      MemorySize: 512
+      Environment:
+        Variables:
+          SESSIONS_TABLE: !Ref SessionsTable
+          DYNAMODB_TABLE: !Ref CareerPlansTable
+          KNOWLEDGE_BASE_ID: !Ref KnowledgeBaseId
+          GENERATION_QUEUE_URL: !Ref GenerationQueue
+          PLANNER_MODEL_ID: !Ref PlannerModelId
+          SERPER_SECRET_ARN: !Ref SerperSecretArn
+      Code:
+        S3Bucket: !Ref KnowledgeBaseDataBucket
+        S3Key: !Ref WorkerCodeS3Key
+        S3ObjectVersion: !Ref WorkerCodeS3ObjectVersion
+  GenerationQueueMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt GenerationQueue.Arn
+      FunctionName: !Ref GenerationWorkerFunction
+      Enabled: !If [EnableGuided, true, false]
+      BatchSize: 1
+      MaximumBatchingWindowInSeconds: 0
+      FunctionResponseTypes: [ReportBatchItemFailures]
+      ScalingConfig:
+        MaximumConcurrency: 2
+  DispatchOutboxMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt SessionsTable.StreamArn
+      FunctionName: !Ref CareerCoachFunction
+      Enabled: !If [EnableGuided, true, false]
+      StartingPosition: TRIM_HORIZON
+      BatchSize: 1
+      MaximumBatchingWindowInSeconds: 0
+      MaximumRetryAttempts: 2
+      MaximumRecordAgeInSeconds: 3600
+      BisectBatchOnFunctionError: true
+      FunctionResponseTypes: [ReportBatchItemFailures]
+      FilterCriteria:
+        Filters:
+          - Pattern: '{"eventName":["INSERT","MODIFY"],"dynamodb":{"NewImage":{"sk":{"S":[{"prefix":"JOB#"}]}}}}'
 
   # Custom chunking hook: invoked by Bedrock during Sync, never by the public API.
   # Bedrock requires transformation intermediate storage in a different bucket from the source.
@@ -386,6 +540,31 @@ Resources:
       AuthorizationType: AWS_IAM
       Target: !Sub 'integrations/${ApiIntegration}'
 
+  SessionCreateRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Condition: EnableGuided
+    Properties:
+      ApiId: !Ref CareerCoachAPI
+      RouteKey: 'POST /v2/sessions'
+      AuthorizationType: AWS_IAM
+      Target: !Sub 'integrations/${ApiIntegration}'
+  SessionProxyRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Condition: EnableGuided
+    Properties:
+      ApiId: !Ref CareerCoachAPI
+      RouteKey: 'ANY /v2/sessions/{proxy+}'
+      AuthorizationType: AWS_IAM
+      Target: !Sub 'integrations/${ApiIntegration}'
+  V2LambdaApiPermission:
+    Type: AWS::Lambda::Permission
+    Condition: EnableGuided
+    Properties:
+      FunctionName: !Ref CareerCoachFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${CareerCoachAPI}/prod/*/v2/sessions*'
+
   ApiStage:
     Type: AWS::ApiGatewayV2::Stage
     Properties:
@@ -483,6 +662,23 @@ Resources:
     Condition: HasSyncBinding
 
 Outputs:
+  GenerationQueueUrl:
+    Value: !Ref GenerationQueue
+  GenerationDeadLetterQueueUrl:
+    Value: !Ref GenerationDeadLetterQueue
+  GenerationWorkerName:
+    Value: !Ref GenerationWorkerFunction
+  GenerationWorkerRoleArn:
+    Value: !GetAtt GenerationWorkerRole.Arn
+  GuidedEnabled:
+    Value: !Ref GuidedEnabled
+  SessionsTableName:
+    Value: !Ref SessionsTable
+  ApiBaseEndpoint:
+    Value: !Sub 'https://${CareerCoachAPI}.execute-api.${AWS::Region}.amazonaws.com/prod'
+  V2ApiInvokeArn:
+    Description: Grant the Flask server identity execute-api Invoke on these signed session routes
+    Value: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${CareerCoachAPI}/prod/*/v2/sessions*'
   IngestionFunctionName:
     Description: Custom chunking function used only during Knowledge Base Sync
     Value: !Ref IngestionTransformationFunction

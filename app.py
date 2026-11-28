@@ -52,7 +52,7 @@ def format_career_plan(plan_text):
     # Use a more robust regex to find sections starting with a number and a period.
     # This splits the text into sections like "1. ...", "2. ...", etc.
     sections_raw = re.split(r'\n(?=\d\.\s)', plan_text)
-    
+
     plan = {
         'title': '',
         'sections': [],
@@ -62,12 +62,12 @@ def format_career_plan(plan_text):
     # The first part is the intro text before the numbered sections
     intro_parts = sections_raw[0].split('\n\n', 1)
     plan['title'] = intro_parts[0].strip()
-    
+
     if len(intro_parts) > 1:
         first_section_text = intro_parts[1]
     else: # Handle cases where there might not be a newline after the title
         first_section_text = ''
-        
+
     # The first section might not have been captured by the split if it's part of the first element
     if first_section_text:
         sections_raw[0] = first_section_text
@@ -77,10 +77,10 @@ def format_career_plan(plan_text):
         lines = [line.strip() for line in section_text.strip().split('\n') if line.strip()]
         if not lines:
             continue
-            
+
         heading = lines[0]
         items = [item.lstrip('- ').strip() for item in lines[1:]]
-        
+
         # Check if the last item is the "Note"
         final_note = ''
         if items and items[-1].lower().startswith('note:'):
@@ -124,7 +124,7 @@ def index():
                 api_data = response.json()
 
                 raw_plan = api_data.get("career_plan")
-                
+
                 if raw_plan:
                     career_plan = format_career_plan(raw_plan)
                 else:
@@ -142,12 +142,15 @@ def index():
 
     return render_template('index.html', career_plan=career_plan, error_message=error_message)
 
+from web_guided import bp as guided_blueprint
+app.register_blueprint(guided_blueprint)
+
 # To run the app, execute `python app.py` in your terminal
 if __name__ == '__main__':
     # Ensure the 'templates' folder exists before running
     if not os.path.exists('templates'):
         os.makedirs('templates')
         print("Created 'templates' directory. Please place 'index.html' inside it.")
-    
+
     app.run(debug=os.environ.get("FLASK_DEBUG") == "1", port=5001)
 
