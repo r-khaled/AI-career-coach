@@ -1,5 +1,22 @@
 # Cost model and operating controls
 
+> **Current cloud status (2026-11-26):** The reference project infrastructure was destroyed at the user's request. Earlier live results and resource diagrams below are historical. Code, contracts and local artifacts remain available; no reference API is running. See [stopping point and next steps](implementation/next-steps.md).
+
+> **Historical live deployment (2026-11-26, subsequently destroyed):** The reference stack reached UPDATE_COMPLETE with 31 resources and a successful live API-to-worker plan journey. External search, real React UI, cross-model and full cost acceptance remain pending. See [recorded live results](implementation/live-deployment.md). Earlier statements below are dated implementation/design snapshots.
+
+
+## Current measurements and cost boundary — reviewed 2026-11-28
+
+The reference project's persistent OpenSearch and other dedicated infrastructure were removed on 2026-11-26; earlier usage can still appear in billing. This is not an account-wide zero-balance claim. One synthetic successful guided journey recorded 13 model calls, 38,712 input tokens and 4,021 output tokens; its generation job took 16 seconds. Separate SEC-201 retrieval took 6.09 seconds. These are historical samples, not complete trial spend, invoice totals, load results or a production estimate.
+
+`PolicyV1` starts with 512 intake tokens, 1024 outline tokens, 2048 final tokens and one repair up to 4096, temperature 0.2; legacy keeps its own 800-token budget. Search permits three requests including retries and five selected page attempts. Session renewal rewrites bounded receipts/turns/jobs, so cost depends on journey length, failures and retries as well as successful plans. The baseline calculator below does not price the complete guided workload. No current prices or credit-expiry balances were reverified in this documentation review.
+
+Full cost acceptance, cross-model comparisons and Serper live checks remain pending. Compare lower-cost vector storage before redeployment; no replacement is selected and no free-tier or fixed monthly-price claim is made. A future short-lived demo requires an explicit spend cap, usage bounds and teardown deadline.
+
+## Historical legacy implementation and redesign proposal
+
+The original before/after explanations and diagrams below are retained for comparison. Use the current section above and the versioned schemas for implementation.
+
 [Documentation](README.md) · [Architecture](architecture.md) · [Operations](operations.md)
 
 **Pricing basis:** USD, on-demand, US East (Ohio), checked 2026-11-26. This is an engineering estimate of the implemented topology, not an invoice or a claim of production measurements. The generation model is Nova Lite v1; embeddings are Titan Text Embeddings v2. Model and OpenSearch unit rates were cross-checked against AWS Price List API entries for us-east-2; other service rates use the linked AWS pricing references. Reprice when changing Region/model/service generation.
@@ -8,7 +25,7 @@ The reproducible inputs/rates are in [cost-model.json](cost-model.json), with an
 
 
 <!-- REDESIGN_NOTE_START -->
-> **Documentation timeline — 2026-11-26:** Existing paragraphs/examples below describe the implemented baseline. Each affected section also records the agreed post-redesign target, **not implemented or deployed**. See [Guided Career Planning Redesign](decisions/guided-career-planning-redesign.md). Existing commands do not deploy that target.
+> **Historical design timeline — 2026-11-26:** The paired before/after sections below preserve the legacy implementation and the proposed redesign as written before execution. Their “not implemented” labels are historical; the current implementation and acceptance limits are recorded above. See [Guided Career Planning Redesign](decisions/guided-career-planning-redesign.md). Existing commands do not deploy that target.
 <!-- REDESIGN_NOTE_END -->
 ## Cost structure of this deployment
 

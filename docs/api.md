@@ -1,10 +1,35 @@
 # API and persistence contract
 
+> **Current cloud status (2026-11-26):** The reference project infrastructure was destroyed at the user's request. Earlier live results and resource diagrams below are historical. Code, contracts and local artifacts remain available; no reference API is running. See [stopping point and next steps](implementation/next-steps.md).
+
+> **Historical live deployment (2026-11-26, subsequently destroyed):** The reference stack reached UPDATE_COMPLETE with 31 resources and a successful live API-to-worker plan journey. External search, real React UI, cross-model and full cost acceptance remain pending. See [recorded live results](implementation/live-deployment.md). Earlier statements below are dated implementation/design snapshots.
+
+
+## Current implemented contracts — reviewed 2026-11-28
+
+The legacy signed `POST /generate-plan` retains its text response and persistence behavior. Guided browser endpoints use Flask's `/api/v2`; Flask signs corresponding `/v2` requests to API Gateway. The browser never receives the session proof in JSON. Strict schema version 1.0 files and valid examples live in `career_coach/schemas/` and `career_coach/fixtures/`.
+
+- `POST /api/v2/sessions`: 201, session/state/profile; sets HttpOnly cookie.
+- `GET /api/v2/session` or `/sessions/{sid}`: resume; cookie proof required.
+- `POST /api/v2/sessions/{sid}/answers`: question ID, answer text, state version and request ID; 200 result or 202 processing. Identical completed requests replay; content reuse conflicts.
+- `POST /api/v2/sessions/{sid}/review`: version-bound approval/assumptions or corrections; corrections invalidate approval.
+- `POST /api/v2/sessions/{sid}/plans`: approved profile version and request ID; 202 job, never synchronous generation.
+- `GET /api/v2/sessions/{sid}/jobs/{jid}`: queued/running/completed/failed plus stage.
+- `GET /api/v2/sessions/{sid}/plans/{pid}?revision=1`: immutable structured plan.
+- `GET /api/v2/sessions/{sid}/plans/{pid}/download?revision=1&format=json` (or `markdown`): Flask validates and exports the structured plan.
+- `POST /api/v2/sessions/{sid}/plans/{pid}/revisions`: request ID, profile version, latest base revision and change request; 202 independent job.
+
+Guided errors use `error.code`, `error.message`, `error.request_id`. Session IDs alone authorize nothing. Logical expiry, conflicts and failed claims have explicit errors; see [React integration](react-integration.md) for exact payloads, cookie lifecycle, polling, retries and stale profiles. Plan IDs, evidence, prerequisite ordering and time totals are checked after JSON schema validation. Historical design examples below are not a replacement for the implemented schemas.
+
+## Historical legacy implementation and redesign proposal
+
+The original before/after explanations and diagrams below are retained for comparison. Use the current section above and the versioned schemas for implementation.
+
 [Documentation](README.md) · [Code reference](code-reference.md) · [Security](security.md)
 
 
 <!-- REDESIGN_NOTE_START -->
-> **Documentation timeline — 2026-11-26:** Existing paragraphs/examples below describe the implemented baseline. Each affected section also records the agreed post-redesign target, **not implemented or deployed**. See [Guided Career Planning Redesign](decisions/guided-career-planning-redesign.md). Existing commands do not deploy that target.
+> **Historical design timeline — 2026-11-26:** The paired before/after sections below preserve the legacy implementation and the proposed redesign as written before execution. Their “not implemented” labels are historical; the current implementation and acceptance limits are recorded above. See [Guided Career Planning Redesign](decisions/guided-career-planning-redesign.md). Existing commands do not deploy that target.
 <!-- REDESIGN_NOTE_END -->
 ## Endpoint and authorization
 

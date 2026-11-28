@@ -22,6 +22,10 @@ python -m ingestion.setup_lab status --profile YOUR_PROFILE --region us-east-2
 
 **Current implementation:** this package owns source validation, whole-course extraction, the transformation adapter and knowledge setup/Sync. It does not own user dialogue or plan jobs.
 
-**Agreed target, not implemented:** [Guided Career Planning Redesign](../docs/decisions/guided-career-planning-redesign.md) retains this ingestion runtime and source schema initially. Application skill/question configuration, anonymous sessions, Serper evidence, prerequisite closure and structured plan validation belong to separately packaged application/worker code. Do not add them to the three-file transformation ZIP.
+**Historical agreed target (before implementation):** [Guided Career Planning Redesign](../docs/decisions/guided-career-planning-redesign.md) retains this ingestion runtime and source schema initially. Application skill/question configuration, anonymous sessions, Serper evidence, prerequisite closure and structured plan validation belong to separately packaged application/worker code. Do not add them to the three-file transformation ZIP.
 
-Knowledge edits still require deliberate upload/Sync. Application-only releases should gain their own deployment path rather than needlessly running this knowledge setup. That app-only path does not exist in the current CLI.
+Knowledge edits still require deliberate upload/Sync. Application-only releases should gain their own deployment path rather than needlessly running this knowledge setup. That was the pre-redesign limitation. The current CLI has `app-release` and `worker-release` for an existing ready stack; each restricts changes to its selected function and does not Sync.
+
+## Current runtime separation — 2026-11-28
+
+`setup --apply` now builds/uploads independent ingestion, application and worker ZIPs and still runs initial Sync. `app-release` and `worker-release` update only their selected runtime; they cannot perform the initial additive infrastructure migration. The separate `career_coach` package owns sessions, questions, evidence and plan jobs. The reference cloud environment was destroyed; see [current stopping point](../docs/implementation/next-steps.md). Fresh-account/Region setup is not established by the historical reference update.

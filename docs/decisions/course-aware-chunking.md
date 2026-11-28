@@ -1,5 +1,7 @@
 # Decision: course-aware custom chunking
 
+> **Execution update — 2026-11-28:** This preserved design/plan is not the execution ledger. Phases 1–8 passed local acceptance; a limited phase-9 live journey passed before the reference infrastructure was destroyed on 2026-11-26. External search, React, model comparison and full cost acceptance remain pending. See [version history](../implementation/version-history.md) and [runtime](../implementation/guided-runtime.md). Earlier current/future wording below describes the pre-execution snapshot.
+
 [Documentation](../README.md) · [Knowledge pipeline](../knowledge-pipeline.md) · [Implementation](../code-reference.md)
 
 **Status:** implemented. Bedrock default parser + built-in NONE + POST_CHUNKING transformation Lambda.

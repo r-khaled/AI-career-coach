@@ -1,11 +1,36 @@
 # Operations
 
+> **Current cloud status (2026-11-26):** The reference project infrastructure was destroyed at the user's request. Earlier live results and resource diagrams below are historical. Code, contracts and local artifacts remain available; no reference API is running. See [stopping point and next steps](implementation/next-steps.md).
+
+> **Historical live deployment (2026-11-26, subsequently destroyed):** The reference stack reached UPDATE_COMPLETE with 31 resources and a successful live API-to-worker plan journey. External search, real React UI, cross-model and full cost acceptance remain pending. See [recorded live results](implementation/live-deployment.md). Earlier statements below are dated implementation/design snapshots.
+
+
+## Current operating boundary — reviewed 2026-11-28
+
+The reference environment was destroyed, not paused. Historical pause/rollback commands below apply only after a new deployment. Source-level legacy fallback is preserved; there is no live fallback endpoint now. Rebuild from source and catalog, not deleted artifact versions. Keep ingestion Sync separate from application/worker releases.
+
+Job statuses are queued/running/completed/failed with a stage; there is no fabricated progress percentage. Immutable approved snapshots preserve profile versions; completed results can be stale after edits. Conditional leases and bounded recovery prevent parallel work; saved-plan reconciliation avoids regeneration after a lost acknowledgement. Dispatch outbox/stream retries cover the DynamoDB/SQS gap. Inspect stalled jobs and DLQ before authorized replay; do not blindly create another paid generation.
+
+A future full teardown must account for Retain tables, versioned bucket contents, external KB/OpenSearch and their dedicated policies/roles, logs and schedules, as well as the main stack. Stack deletion alone does not establish zero ongoing cost. The private reference teardown verified those removals. One AWS-managed deleted-table SYSTEM backup expires 2026-12-31 at no additional cost. No destructive script has been added as an automatic public setup action.
+
+## Historical legacy implementation and redesign proposal
+
+The original before/after explanations and diagrams below are retained for comparison. Use the current section above and the versioned schemas for implementation.
+
 [Documentation](README.md) · [Deployment](deployment.md) · [Costs](costs.md)
 
 
 <!-- REDESIGN_NOTE_START -->
-> **Documentation timeline — 2026-11-26:** Existing paragraphs/examples below describe the implemented baseline. Each affected section also records the agreed post-redesign target, **not implemented or deployed**. See [Guided Career Planning Redesign](decisions/guided-career-planning-redesign.md). Existing commands do not deploy that target.
+> **Historical design timeline — 2026-11-26:** The paired before/after sections below preserve the legacy implementation and the proposed redesign as written before execution. Their “not implemented” labels are historical; the current implementation and acceptance limits are recorded above. See [Guided Career Planning Redesign](decisions/guided-career-planning-redesign.md). Existing commands do not deploy that target.
 <!-- REDESIGN_NOTE_END -->
+
+## Current guided deployment and operation
+
+`python -m ingestion.setup_lab setup --profile YOUR_PROFILE --region us-east-2` inspects AWS and prints a plan. Adding `--apply` uploads the three artifact types, executes CloudFormation change sets, creates or validates the KB/data source and runs Sync plus one retrieval smoke check; it does not pause for manual change-set approval. The new stack resources are included, but `GuidedEnabled` defaults to `false`: guided routes and event source mappings remain disabled. Existing stack parameters are preserved where the wrapper supplies previous values. The wrapper does not configure every guided model/profile/secret parameter or create a Serper secret. Explicitly review those settings and model access before a separately authorized activation and live tests. The historical reference passed a limited live journey; external search, React, comparison and full cost acceptance remain incomplete. It was subsequently destroyed.
+
+For application-only or worker-only changes, `app-release` and `worker-release` preview the selected function release; `--apply` uploads and deploys the corresponding artifact and refuses other resource changes. These releases do not run Sync. They cannot introduce the initial additive guided infrastructure. To pause guided intake and both consumers after deployment, use a reviewed CloudFormation update setting `GuidedEnabled=false`; retain the legacy route and data. A prolonged DynamoDB outage can leave messages in the generation DLQ and a job state stale; after service recovery inspect the job and queue before any authorized redrive. Do not delete retained resources as part of rollback.
+
+Budget for session read/write renewal, outline/final/repair model calls, internal Retrieve, bounded Serper/page requests, SQS/DLQ, worker duration and the existing OpenSearch capacity floor. Budgets and caps are not measured journey cost or a guaranteed spending limit. See [runtime implementation](implementation/guided-runtime.md) and [React integration](react-integration.md).
 ## Verify deployment state
 
 <!-- REDESIGN_NOTE_START -->

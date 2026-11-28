@@ -1,8 +1,35 @@
 # AI Career Coach
 
-<!-- REDESIGN_NOTE_START -->
-> **2026-11-26: baseline and planned evolution.** The existing sections and commands describe the implemented application. [Guided Career Planning Redesign](docs/decisions/guided-career-planning-redesign.md) is the agreed future design, not deployed behavior. The detailed documentation now records before/after changes within each affected section; application code, infrastructure and cost inputs have not been changed.
-<!-- REDESIGN_NOTE_END -->
+> **Current cloud status (2026-11-26):** The reference project infrastructure was destroyed at the user's request. Earlier live results and resource diagrams below are historical. Code, contracts and local artifacts remain available; no reference API is running. See [stopping point and next steps](docs/implementation/next-steps.md).
+
+> **Historical live deployment (2026-11-26, subsequently destroyed):** The reference stack reached UPDATE_COMPLETE with 31 resources and a successful live API-to-worker plan journey. External search, real React UI, cross-model and full cost acceptance remain pending. See [recorded live results](docs/implementation/live-deployment.md). Earlier statements below are dated implementation/design snapshots.
+
+
+
+## Current implementation and first-time setup
+
+Version anchors: [`old-architecture`](https://github.com/r-khaled/AI-career-coach/tree/old-architecture), [`guided-redesign-v1`](https://github.com/r-khaled/AI-career-coach/tree/guided-redesign-v1), [`react-contract-v1`](https://github.com/r-khaled/AI-career-coach/tree/react-contract-v1). See [version history and acceptance](docs/implementation/version-history.md).
+
+The legacy form works with the existing `POST /generate-plan` API. The guided backend, Flask proxy and structured plan worker are implemented and tested offline; their CloudFormation resources passed a limited historical live journey before the reference infrastructure was destroyed; full acceptance remains incomplete. React screens are not included. `GuidedEnabled` defaults to `false`, so creating the stack does not enable the guided routes or queue/stream consumers.
+
+The setup command uses **CloudFormation**, not Terraform. For a fresh target, `setup --apply` bootstraps the buckets, uploads independent ingestion, application and worker ZIPs, applies the main template, creates or reuses a compatible knowledge base, binds its data source, runs Sync and checks one Retrieve result. It also binds the optional schedule, which is disabled unless explicitly enabled. This workflow is locally tested with mocks; a fresh redesigned bootstrap in another account/Region has not been verified live; the historical guided update reused the existing KB. `--apply` executes change sets automatically and initiates paid resources and Sync: review the target, costs and authorization first. A preview without `--apply` reads AWS state and prints a plan; it does not create a reviewable AWS change set.
+
+Before guided activation, review and configure `IntakeModelId`, `PlannerModelId`, inference-profile destination permissions if applicable, and an existing `SerperSecretArn`. The setup CLI does not expose flags for all of these settings, does not create the secret, and does not automatically enable `GuidedEnabled`. Review a separate CloudFormation update and obtain authorization for activation and paid trials. The existing knowledge base and ingestion settings are retained where compatible. Real React acceptance, external search, cross-model comparison and full cost/latency acceptance remain pending; one historical journey is recorded separately.
+
+For offline checks after cloning, create a Python 3.12 environment, install `requirements-dev.txt`, then run `python -m unittest discover -s tests -v` and `cfn-lint CloudFormation.yaml infrastructure/*.json`. The release builder may download pinned wheels on its first run; an existing verified wheelhouse supports offline builds. See [deployment](docs/deployment.md), [operations](docs/operations.md), [costs](docs/costs.md) and [React integration](docs/react-integration.md).
+
+### Code structure
+
+- `app.py`, `web_guided.py`: legacy Flask form and same-origin guided proxy.
+- `career_coach/handler.py`, `sessions.py`, `store.py`, `wizard.py`: routes, anonymous session persistence, claims and dialogue.
+- `career_coach/retrieval.py`, `external.py`, `planning.py`, `plan_validation.py`: evidence, bounded external search and validated roadmap generation.
+- `career_coach/jobs.py`, `worker.py`, `plans.py`, `downloads.py`: asynchronous jobs, immutable revisions and structured downloads.
+- `career_coach/schemas/`, `fixtures/`, `definitions/`, `config.py`: contracts, examples and reviewed settings.
+- `ingestion/`, `infrastructure/`, `CloudFormation.yaml`: knowledge pipeline, setup and declarative AWS resources.
+- `scripts/package_application.py`, `scripts/evaluate_retrieval.py`, `tests/`: artifact builds and offline verification.
+
+The diagrams and older explanations below preserve the historical baseline and design discussion; this section and the linked runtime record reflect the current local implementation.
+
 
 AI Career Coach generates career-development plans grounded in an internal course catalog. Users submit their current role and career goal; Amazon Bedrock retrieves relevant course evidence, generates a plan and returns citations. Successful requests and plans are stored in DynamoDB.
 
@@ -91,14 +118,14 @@ First setup bootstraps two private versioned buckets, uploads the verified inges
 
 
 <!-- REDESIGN_DETAIL_START -->
-**After redesign — agreed target, not implemented (2026-11-26):** The commands above initialize the current system only. Future readiness additionally includes reviewed question/skill definitions, application/worker artifacts, a sessions table, generation queue/DLQ, verified model/profile permissions and a Serper secret ARN. No new setup command is claimed to exist yet.
+**Current update:** Setup builds all three artifacts and prepares the guided resources with `GuidedEnabled=false`. Model/profile permissions, secret configuration, live acceptance and deliberate activation remain separate steps.
 <!-- REDESIGN_DETAIL_END -->
 
 ## Deployment order and existing stacks
 
 **Start with the setup CLI after cloning/authenticating; do not deploy the full CloudFormation template first.** Setup invokes CloudFormation itself: fresh bucket bootstrap → ZIP preparation/upload → full main-stack change sets → KB/source binding → initial Sync/Retrieve → Scheduler binding. CloudFormation does not execute the local setup Python file.
 
-The full template requires `IngestionCodeS3Key` and `IngestionCodeS3ObjectVersion`. A direct fresh deployment without those parameters fails validation; supplied parameters pointing to a missing ZIP can fail Lambda creation/roll back. With a valid ZIP, the main stack can deploy while the KB/source are still unconfigured; optional Scheduler resources remain absent until both IDs are bound. Main-stack success alone is not a complete knowledge setup.
+The full template requires the ingestion, application and worker S3 key and exact object-version parameters. A direct fresh deployment without those parameters fails validation; supplied parameters pointing to a missing ZIP can fail Lambda creation/roll back. With a valid ZIP, the main stack can deploy while the KB/source are still unconfigured; optional Scheduler resources remain absent until both IDs are bound. Main-stack success alone is not a complete knowledge setup.
 
 For a compatible existing stack, rerun the same setup commands with its exact account/profile, Region and `--stack-name`. Setup reuses verified artifacts and a validated configured KB, updates the existing stack and completes supported remaining steps. It does not create a second environment unless a different stack name is chosen. The read-only preview is an application plan, **not** a prepared CloudFormation change set. During `--apply`, the CLI saves/prints/checks and executes change sets automatically; it does not pause for a human review.
 
@@ -106,7 +133,7 @@ Reconciliation is repeatable within the supported configuration, not universal r
 
 
 <!-- REDESIGN_DETAIL_START -->
-**After redesign — agreed target, not implemented (2026-11-26):** Keep the existing KB/source and ownership. The future release path is: build versioned app/worker artifacts → review additive changes → deploy sessions/worker/queue/v2 routes → verify retrieval and generation separately → intentionally switch the UI. App-only releases must avoid unnecessary Sync; the current wrapper does not yet provide that release mode.
+**After redesign — agreed target, not implemented (2026-11-26):** Keep the existing KB/source and ownership. The current wrapper provides `app-release` and `worker-release` for function-only artifact changes without Sync. Initial additive infrastructure changes require a separately reviewed deployment; verify retrieval and generation before intentional activation.
 <!-- REDESIGN_DETAIL_END -->
 
 ## Run the application locally

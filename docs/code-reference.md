@@ -1,11 +1,49 @@
 # Code reference
 
+> **Current cloud status (2026-11-26):** The reference project infrastructure was destroyed at the user's request. Earlier live results and resource diagrams below are historical. Code, contracts and local artifacts remain available; no reference API is running. See [stopping point and next steps](implementation/next-steps.md).
+
+> **Historical live deployment (2026-11-26, subsequently destroyed):** The reference stack reached UPDATE_COMPLETE with 31 resources and a successful live API-to-worker plan journey. External search, real React UI, cross-model and full cost acceptance remain pending. See [recorded live results](implementation/live-deployment.md). Earlier statements below are dated implementation/design snapshots.
+
+
+## Current module and test map — reviewed 2026-11-28
+
+```text
+app.py / web_guided.py          Legacy Flask + guided cookie/SigV4 proxy
+career_coach/
+  handler.py / legacy.py        Guided routing + extracted compatible legacy handler
+  config.py / contracts.py      PolicyV1 + schema validation
+  schemas/ / fixtures/          Strict v1.0 contracts and examples
+  definitions/                 Versioned reviewed skills and questions
+  sessions.py / store.py        Proof, sliding expiry, CAS, claims and replay
+  wizard.py / models.py         Rule-selected dialogue + bounded model proposals
+  retrieval.py / external.py    Internal closure + external evidence and safe fetching
+  planning.py                   Outline, resource matching, final draft and one repair
+  plan_validation.py           References, prerequisites, constraints and totals
+  jobs.py / worker.py           Outbox, leases, recovery and background generation
+  plans.py / downloads.py       Immutable revisions and structured exports
+scripts/package_application.py Locked deterministic application/worker ZIPs
+scripts/evaluate_retrieval.py  Offline synthetic equal-k baseline comparison
+CloudFormation.yaml           API, packaged runtimes, state, queues, IAM and mappings
+infrastructure/               Bootstrap + companion knowledge resources
+ingestion/                    Existing independent ingestion and setup tooling
+examples/guided/client.js      Minimal browser contract helper, no production UI
+```
+
+Read in journey order: Flask proxy → handler → sessions/store → wizard/model adapter → review → jobs/outbox → worker → evidence → planning/validation → plans/downloads. `ingestion.setup_lab` exposes `setup`, `sync`, `status`, `app-release`, `worker-release`; application-only releases do not Sync. The three-file ingestion ZIP remains independent. Application/worker ZIPs share reviewed modules but carry independent manifests, keys and versions.
+
+The current offline suite has 166 tests. Contract, model, session/store, wizard/dialogue, retrieval/external, planning/validation, job/recovery/worker, packaging, Flask proxy and infrastructure tests supplement the retained form/signing/ingestion/setup tests. [Runtime details](implementation/guided-runtime.md) document limits; [React integration](react-integration.md) documents the handoff. Historical `backend/` trees below were proposals; the actual package is `career_coach/`.
+
+## Historical legacy implementation and redesign proposal
+
+The original before/after explanations and diagrams below are retained for comparison. Use the current section above and the versioned schemas for implementation.
+
 [Documentation](README.md) · [Architecture](architecture.md)
 
 
 <!-- REDESIGN_NOTE_START -->
-> **Documentation timeline — 2026-11-26:** Existing paragraphs/examples below describe the implemented baseline. Each affected section also records the agreed post-redesign target, **not implemented or deployed**. See [Guided Career Planning Redesign](decisions/guided-career-planning-redesign.md). Existing commands do not deploy that target.
+> **Historical design timeline — 2026-11-26:** The paired before/after sections below preserve the legacy implementation and the proposed redesign as written before execution. Their “not implemented” labels are historical; the current implementation and acceptance limits are recorded above. See [Guided Career Planning Redesign](decisions/guided-career-planning-redesign.md). Existing commands do not deploy that target.
 <!-- REDESIGN_NOTE_END -->
+
 ## Repository layout
 
 <!-- REDESIGN_NOTE_START -->

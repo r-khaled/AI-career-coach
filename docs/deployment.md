@@ -1,10 +1,38 @@
 # Deployment and local startup
 
+> **Current cloud status (2026-11-26):** The reference project infrastructure was destroyed at the user's request. Earlier live results and resource diagrams below are historical. Code, contracts and local artifacts remain available; no reference API is running. See [stopping point and next steps](implementation/next-steps.md).
+
+> **Historical live deployment (2026-11-26, subsequently destroyed):** The reference stack reached UPDATE_COMPLETE with 31 resources and a successful live API-to-worker plan journey. External search, real React UI, cross-model and full cost acceptance remain pending. See [recorded live results](implementation/live-deployment.md). Earlier statements below are dated implementation/design snapshots.
+
+
+## Current first-time and release workflow — reviewed 2026-11-28
+
+No reference infrastructure is running. A new deployment must rebuild and upload artifacts; the former S3 versions and resource IDs were deleted. Setup uses **CloudFormation, not Terraform**. From a Python 3.12 environment install `requirements-dev.txt` and run the offline tests and cfn-lint before AWS work.
+
+```bash
+python -m unittest discover -s tests -v
+cfn-lint CloudFormation.yaml infrastructure/*.json
+# Reads AWS state; does not provision:
+python -m ingestion.setup_lab setup --profile YOUR_PROFILE --region YOUR_REGION
+# Only after explicit target/cost authorization:
+# python -m ingestion.setup_lab setup --profile YOUR_PROFILE --region YOUR_REGION --apply
+```
+
+`setup --apply` bootstraps buckets, uploads independently versioned ingestion/application/worker artifacts, applies the main template, creates or reuses a compatible KB, binds its source and runs Sync/Retrieve. The main stack alone does not provision an externally owned KB/OpenSearch. Fresh targets use the companion RAG template through setup. This full fresh redesigned bootstrap was checked with mocks, not proven in a second account/Region; the historical live update reused the existing KB. Defaults keep guided routes/consumers disabled and the schedule disabled unless opted in.
+
+Review `IntakeModelId`, `PlannerModelId`, destination model ARNs, `SerperSecretArn`, `GuidedEnabled` and account/Region permissions separately: the wrapper does not expose every guided parameter or create the Serper secret. Use full inference-profile ARNs when applicable; never construct a foundation-model ARN around a profile ARN. `ExistingSessionsTableName` is only for an explicitly reviewed retained-table import; fresh setup leaves it empty. `app-release`/`worker-release` require an existing ready stack, permit only their selected function change and do not Sync. Previewing those modes can download pinned wheels.
+
+Flask runs locally with `python app.py` on port 5001. Configure server-side AWS profile/Region and `API_URL` for legacy; guided routes also need `PUBLIC_ORIGIN` and `API_BASE_URL` (or derived legacy base), with `GUIDED_ENV=development` only for localhost HTTP. There is no production React hosting in these templates. [React integration](react-integration.md) defines the cookie/Origin rules and offline conformance; test-client injection is not a standalone local AWS emulator.
+
+## Historical legacy implementation and redesign proposal
+
+The original before/after explanations and diagrams below are retained for comparison. Use the current section above and the versioned schemas for implementation.
+
 [Documentation](README.md) · [Security](security.md) · [Operations](operations.md) · [Cost model](costs.md)
 
 
 <!-- REDESIGN_NOTE_START -->
-> **Documentation timeline — 2026-11-26:** Existing paragraphs/examples below describe the implemented baseline. Each affected section also records the agreed post-redesign target, **not implemented or deployed**. See [Guided Career Planning Redesign](decisions/guided-career-planning-redesign.md). Existing commands do not deploy that target.
+> **Historical design timeline — 2026-11-26:** The paired before/after sections below preserve the legacy implementation and the proposed redesign as written before execution. Their “not implemented” labels are historical; the current implementation and acceptance limits are recorded above. See [Guided Career Planning Redesign](decisions/guided-career-planning-redesign.md). Existing commands do not deploy that target.
 <!-- REDESIGN_NOTE_END -->
 ## Prerequisites
 

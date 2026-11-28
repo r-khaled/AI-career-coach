@@ -1,10 +1,27 @@
 # Security and configuration
 
+> **Current cloud status (2026-11-26):** The reference project infrastructure was destroyed at the user's request. Earlier live results and resource diagrams below are historical. Code, contracts and local artifacts remain available; no reference API is running. See [stopping point and next steps](implementation/next-steps.md).
+
+> **Historical live deployment (2026-11-26, subsequently destroyed):** The reference stack reached UPDATE_COMPLETE with 31 resources and a successful live API-to-worker plan journey. External search, real React UI, cross-model and full cost acceptance remain pending. See [recorded live results](implementation/live-deployment.md). Earlier statements below are dated implementation/design snapshots.
+
+
+## Current guided security boundary — reviewed 2026-11-28
+
+Flask owns same-origin cookie lifecycle and signs AWS requests server-side. The session proof is inside an HttpOnly, SameSite=Lax cookie (Secure outside explicit localhost HTTP development), omitted from browser JSON, and hashed in persistence. Mutating browser requests require the configured exact Origin; IDs alone grant no access. API Gateway retains AWS_IAM. Logical seven-day expiry is enforced before access independently of TTL cleanup.
+
+Application and worker IAM are separate. Only the worker reads the configured Serper secret ARN; external queries use reviewed generic topics, never raw user answers. Page fetching validates DNS/redirect destinations and pins public addresses with TLS hostname verification; private, loopback, link-local and metadata destinations fail closed. Page text is untrusted evidence. Model proposals pass strict allowed fields/provenance validation; code chooses questions and validates plan references/totals.
+
+The model adapter preserves full profile ARNs, and deployment parameters allow exact destination foundation-model ARNs. Secret creation, credentials, login/JWT and new frontend hosting are outside this release. Offline security fixtures are not a penetration test or full live isolation acceptance. Public version tags exclude `.local/`, `.lab/`, `.aws/`, `.env` and credentials.
+
+## Historical legacy implementation and redesign proposal
+
+The original before/after explanations and diagrams below are retained for comparison. Use the current section above and the versioned schemas for implementation.
+
 [Documentation](README.md) · [Deployment](deployment.md) · [Operations](operations.md)
 
 
 <!-- REDESIGN_NOTE_START -->
-> **Documentation timeline — 2026-11-26:** Existing paragraphs/examples below describe the implemented baseline. Each affected section also records the agreed post-redesign target, **not implemented or deployed**. See [Guided Career Planning Redesign](decisions/guided-career-planning-redesign.md). Existing commands do not deploy that target.
+> **Historical design timeline — 2026-11-26:** The paired before/after sections below preserve the legacy implementation and the proposed redesign as written before execution. Their “not implemented” labels are historical; the current implementation and acceptance limits are recorded above. See [Guided Career Planning Redesign](decisions/guided-career-planning-redesign.md). Existing commands do not deploy that target.
 <!-- REDESIGN_NOTE_END -->
 ## Local caller
 

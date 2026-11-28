@@ -16,15 +16,15 @@ AI Career Coach generates career-development plans from an internal course catal
 
 The repository contains code for the full setup path, including Scheduler resources. A deployed environment can be at an earlier revision. Verify stack resources and schedule state before relying on automatic refresh; [operations](operations.md#verify-scheduling) provides the checks.
 
-## Agreed future design — not implemented
+## Implementation status — reviewed 2026-11-28
 
-[Implementation phases](implementation/guided-career-planning-redesign-phases.md) breaks the redesign into nine bounded, ordered work packages with deliverables, acceptance gates and ready-to-copy new-chat prompts. All phases start as planned; this document does not execute them.
+[Implementation phases](implementation/guided-career-planning-redesign-phases.md) breaks the redesign into nine bounded, ordered work packages with deliverables, acceptance gates and ready-to-copy new-chat prompts. Phases 1–8 passed local gates. Phase 9 passed a limited reference live journey; full live acceptance and React remain pending. The reference infrastructure was subsequently destroyed.
 
-[Guided Career Planning Redesign](decisions/guided-career-planning-redesign.md) records the agreed Smart Wizard journey, anonymous sessions, skills configuration, retrieval and external search, asynchronous generation, JSON contracts and implementation/acceptance plan. It is a future design, not a description of deployed behavior. The references above continue to describe the current implementation.
+[Guided Career Planning Redesign](decisions/guided-career-planning-redesign.md) records the agreed Smart Wizard journey, anonymous sessions, skills configuration, retrieval and external search, asynchronous generation, JSON contracts and implementation/acceptance plan. It remains the design authority. The implementation is recorded separately; the reference deployment is now historical.
 
-## Before/after comparison coverage
+## Historical before/after comparison coverage
 
-Target examples are design-only; implementation and live acceptance remain pending.
+The comparison sections preserve the pre-implementation proposals. Current sections above them document actual code; partial live results do not establish full acceptance.
 
 - [Architecture](architecture.md): paired A/B diagrams in all eight sections.
 - [API](api.md): current request/response alongside v2 routes, answer/review/job/plan/error examples and persistence flow.
@@ -40,3 +40,11 @@ Target examples are design-only; implementation and live acceptance remain pendi
 The existing JSON cost inputs and calculator remain baseline-only. The redesigned workload worksheet is documentation, not an implemented calculator or a measured estimate.
 
 [Single-session orchestrator prompt](implementation/guided-career-planning-redesign-orchestrator-prompt.md) executes all nine phases with bounded worker parallelism and explicit dependency gates.
+
+## Current implementation and release references
+
+- [Runtime implementation](implementation/guided-runtime.md): modules, limits and local acceptance.
+- [React integration](react-integration.md): delivered Flask contracts and client examples.
+- [Historical live results and deployed diagram](implementation/live-deployment.md): measured samples and unresolved gates.
+- [Version history](implementation/version-history.md): old and new version anchors and nine-phase results.
+- [Stopping point and next steps](implementation/next-steps.md): verified teardown and future work.

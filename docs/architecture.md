@@ -1,10 +1,49 @@
 # Architecture
 
+> **Current cloud status (2026-11-26):** The reference project infrastructure was destroyed at the user's request. Earlier live results and resource diagrams below are historical. Code, contracts and local artifacts remain available; no reference API is running. See [stopping point and next steps](implementation/next-steps.md).
+
+> **Historical live deployment (2026-11-26, subsequently destroyed):** The reference stack reached UPDATE_COMPLETE with 31 resources and a successful live API-to-worker plan journey. External search, real React UI, cross-model and full cost acceptance remain pending. See [recorded live results](implementation/live-deployment.md). Earlier statements below are dated implementation/design snapshots.
+
+
+## Current source architecture — reviewed 2026-11-28
+
+The legacy form and `POST /generate-plan` remain compatible in source; the inline handler moved to `career_coach/legacy.py`. The guided path uses a backend-controlled Smart Wizard, not an agent loop. React is a future client of the Flask cookie/SigV4 proxy. Application Lambda owns intake, approval and job dispatch; DynamoDB owns session state, bounded request receipts and immutable approved snapshots. A filtered stream retries pending dispatch to generation SQS; a separate worker retrieves evidence, creates and validates plans and persists revisions before completion. Queue and stream mappings are gated by `GuidedEnabled` (default `false`).
+
+```mermaid
+flowchart TD
+    Browser[Legacy form / future React] --> Flask[Flask: cookie, Origin checks, SigV4]
+    Flask --> API[API Gateway: AWS_IAM]
+    API --> App[Application Lambda: career_coach.handler]
+    App <--> Sessions[DynamoDB sessions and job snapshots]
+    Sessions --> Stream[Filtered outbox stream]
+    Stream --> App
+    App --> Queue[Generation SQS]
+    Queue --> Worker[Separate generation Lambda]
+    Queue -. failed deliveries .-> DLQ[Generation DLQ]
+    Worker --> Evidence[Internal Retrieve + bounded external search]
+    Evidence --> KB[Bedrock KB / OpenSearch Serverless]
+    Evidence -. secret ARN .-> Serper[Serper + public page evidence]
+    Worker --> Models[Bedrock Converse]
+    App --> Models
+    App --> Plans[DynamoDB plans]
+    Worker --> Plans
+    Catalog[S3 catalog] --> Ingestion[Bedrock ingestion + custom transform Lambda]
+    Ingestion --> KB
+    Ingestion <--> Intermediate[S3 intermediate]
+    Scheduler[Optional Scheduler + separate Sync DLQ] --> KB
+```
+
+This describes the checked-in architecture, not running infrastructure. The reference stack previously had 31 resources; 13 were added or imported. KB/OpenSearch were externally owned and were not among those 13. Both stack and dedicated external resources were destroyed on 2026-11-26. The historical deployed diagram and measurements are in [live results](implementation/live-deployment.md). Ingestion, embeddings and chunk boundaries were preserved; lower-cost vector storage is future work.
+
+## Historical legacy implementation and redesign proposal
+
+The original before/after explanations and diagrams below are retained for comparison. Use the current section above and the versioned schemas for implementation.
+
 [Documentation](README.md) · [Deployment](deployment.md) · [Code reference](code-reference.md)
 
 
 <!-- REDESIGN_NOTE_START -->
-> **Documentation timeline — 2026-11-26:** Existing paragraphs/examples below describe the implemented baseline. Each affected section also records the agreed post-redesign target, **not implemented or deployed**. See [Guided Career Planning Redesign](decisions/guided-career-planning-redesign.md). Existing commands do not deploy that target.
+> **Historical design timeline — 2026-11-26:** The paired before/after sections below preserve the legacy implementation and the proposed redesign as written before execution. Their “not implemented” labels are historical; the current implementation and acceptance limits are recorded above. See [Guided Career Planning Redesign](decisions/guided-career-planning-redesign.md). Existing commands do not deploy that target.
 <!-- REDESIGN_NOTE_END -->
 ## Purpose and boundaries
 

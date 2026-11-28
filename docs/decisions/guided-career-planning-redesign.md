@@ -1,8 +1,10 @@
 # Guided Career Planning Redesign
 
+> **Execution update — 2026-11-28:** This preserved design/plan is not the execution ledger. Phases 1–8 passed local acceptance; a limited phase-9 live journey passed before the reference infrastructure was destroyed on 2026-11-26. External search, React, model comparison and full cost acceptance remain pending. See [version history](../implementation/version-history.md) and [runtime](../implementation/guided-runtime.md). Earlier current/future wording below describes the pre-execution snapshot.
+
 [Documentation](../README.md) · [Current architecture](../architecture.md) · [Current API](../api.md) · [Knowledge pipeline](../knowledge-pipeline.md)
 
-**Status: agreed design; not implemented. Recorded: 2026-11-26.**
+**Status: agreed design reference. Recorded: 2026-11-26.** Local implementation progress is tracked in [the runtime record](../implementation/guided-runtime.md); this design document is not deployment or acceptance evidence.
 This English reference documents future behavior. It does not deploy resources, change code or run Sync. Examples are illustrative, not live responses. Existing behavior remains documented alongside dated redesign notes.
 
 ## 1. Purpose and boundaries

@@ -1,10 +1,24 @@
 # Knowledge pipeline and data contracts
 
+> **Current cloud status (2026-11-26):** The reference project infrastructure was destroyed at the user's request. Earlier live results and resource diagrams below are historical. Code, contracts and local artifacts remain available; no reference API is running. See [stopping point and next steps](implementation/next-steps.md).
+
+## Current retained pipeline and new evidence layer — reviewed 2026-11-28
+
+Catalog schema, whole-course extraction, custom chunking, Titan embeddings and index settings were preserved by the guided redesign. Ingestion remains a separate three-file runtime ZIP. The old `RetrieveAndGenerate` legacy route retains five results and its original prompt; guided planning uses `InternalRetriever` and separate generation.
+
+Guided Retrieve explicitly requests SEMANTIC, 15 results and `record_type=course`. Exact-ID prerequisite expansion uses visited IDs, depth 10 and 30 SDK requests, exposes missing/cyclic/conflicting evidence and counts shared courses once. It preserves source text, metadata, rank, score, configuration and fetch time; context records are not course candidates. SEC-201 closes to 68 hours without equivalence, both in offline fixtures and a historical live check.
+
+External Serper snippets and selected course pages use the same resource/evidence contracts but distinct provenance. Unknown price/duration/prerequisites remain unknown; external search does not alter ingestion or create a permanent external catalog. The equal-k English/Arabic retrieval harness uses synthetic ranks; a live captured original baseline and ranking improvement remain unproven. The former KB/index were destroyed; this document records source behavior, not an active knowledge service.
+
+## Historical legacy implementation and redesign proposal
+
+The original before/after explanations and diagrams below are retained for comparison. Use the current section above and the versioned schemas for implementation.
+
 [Documentation](README.md) · [Architecture](architecture.md) · [Chunking decision](decisions/course-aware-chunking.md)
 
 
 <!-- REDESIGN_NOTE_START -->
-> **Documentation timeline — 2026-11-26:** Existing paragraphs/examples below describe the implemented baseline. Each affected section also records the agreed post-redesign target, **not implemented or deployed**. See [Guided Career Planning Redesign](decisions/guided-career-planning-redesign.md). Existing commands do not deploy that target.
+> **Historical design timeline — 2026-11-26:** The paired before/after sections below preserve the legacy implementation and the proposed redesign as written before execution. Their “not implemented” labels are historical; the current implementation and acceptance limits are recorded above. See [Guided Career Planning Redesign](decisions/guided-career-planning-redesign.md). Existing commands do not deploy that target.
 <!-- REDESIGN_NOTE_END -->
 ## Source catalog
 

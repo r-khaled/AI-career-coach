@@ -1,5 +1,7 @@
 # Guided Career Planning Redesign — Implementation Phases
 
+> **Execution update — 2026-11-28:** This preserved design/plan is not the execution ledger. Phases 1–8 passed local acceptance; a limited phase-9 live journey passed before the reference infrastructure was destroyed on 2026-11-26. External search, React, model comparison and full cost acceptance remain pending. See [version history](version-history.md) and [runtime](guided-runtime.md). Earlier current/future wording below describes the pre-execution snapshot.
+
 [Documentation](../README.md) · [Agreed design](../decisions/guided-career-planning-redesign.md) · [Architecture](../architecture.md) · [API](../api.md) · [Code reference](../code-reference.md)
 
 **Status: execution breakdown only; no implementation phase completed by this document. Date: 2026-11-26.**
@@ -39,7 +41,7 @@ This is one sequential chain. Internal and external evidence are deliberately se
 
 ## Phase status
 
-All nine phases are **planned** at creation. Documentation, earlier ingestion tests and archived AWS evidence do not count as completion of any execution phase. Each implementation chat must explicitly record its evidence and pending items.
+All nine phases were **planned** at creation. Execution update (2026-11-26): phases 1–8 passed local acceptance (164 offline tests plus final focused checks). Phase 9 artifacts and an offline change-set request are prepared; deployment, paid trials, live acceptance, React UI acceptance and cutover remain pending. See [the runtime implementation record](guided-runtime.md). Documentation, earlier ingestion tests and archived AWS evidence do not count as completion of any execution phase. Each implementation chat must explicitly record its evidence and pending items.
 
 ## Phase 1 — Contracts and application packaging
 
