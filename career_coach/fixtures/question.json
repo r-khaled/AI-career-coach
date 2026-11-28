@@ -1,0 +1,8 @@
+{
+  "question_id": "rag_practice",
+  "text": "Have you only used a model API, or have you searched documents and inspected retrieved sources?",
+  "answer_type": "text",
+  "options": [],
+  "allow_unknown": true,
+  "optional": false
+}

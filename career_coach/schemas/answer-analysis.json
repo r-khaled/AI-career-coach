@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:aicc:answer-analysis:1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "facts",
+    "unresolved",
+    "suggested_followup_id",
+    "suggested_question_text"
+  ],
+  "properties": {
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "value",
+          "source_question_id",
+          "basis"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": {
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "source_question_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "basis": {
+            "enum": [
+              "user_reported",
+              "inferred"
+            ]
+          }
+        }
+      }
+    },
+    "unresolved": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "suggested_followup_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "suggested_question_text": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

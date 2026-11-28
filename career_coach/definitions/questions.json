@@ -1,0 +1,569 @@
+{
+  "schema_version": "1.0",
+  "questions": [
+    {
+      "id": "current_work",
+      "axis": "direction",
+      "purpose": "Understand current work",
+      "slot": "current_role",
+      "stage": "direction",
+      "fallback": "What is your current work or background?",
+      "type": "text",
+      "options": [],
+      "eligibility": "always",
+      "dependencies": [],
+      "completion": "slot_answered",
+      "followup": "none",
+      "allowed_fields": [
+        "current_role",
+        "goal",
+        "direction",
+        "outcome",
+        "practice",
+        "capability_two",
+        "capability_three",
+        "weekly_hours",
+        "deadline_weeks",
+        "flexibility",
+        "language",
+        "budget",
+        "subscription",
+        "allowed_track",
+        "allowed_level",
+        "per_course_max_hours"
+      ],
+      "is_followup": false,
+      "wording_variants": [
+        "What is your current work or background?",
+        "Please tell me: What is your current work or background?"
+      ]
+    },
+    {
+      "id": "goal",
+      "axis": "direction",
+      "purpose": "Identify career direction",
+      "slot": "goal",
+      "stage": "direction",
+      "fallback": "What direction would you like to explore?",
+      "type": "text",
+      "options": [],
+      "eligibility": "always",
+      "dependencies": [],
+      "completion": "slot_answered",
+      "followup": "direction_followup",
+      "allowed_fields": [
+        "current_role",
+        "goal",
+        "direction",
+        "outcome",
+        "practice",
+        "capability_two",
+        "capability_three",
+        "weekly_hours",
+        "deadline_weeks",
+        "flexibility",
+        "language",
+        "budget",
+        "subscription",
+        "allowed_track",
+        "allowed_level",
+        "per_course_max_hours"
+      ],
+      "is_followup": false,
+      "wording_variants": [
+        "What direction would you like to explore?",
+        "Please tell me: What direction would you like to explore?"
+      ]
+    },
+    {
+      "id": "direction_followup",
+      "axis": "direction",
+      "purpose": "Resolve an ambiguous direction",
+      "slot": "direction",
+      "stage": "direction",
+      "fallback": "Which direction best describes your goal?",
+      "type": "single_choice",
+      "options": [
+        "applications",
+        "model training",
+        "infrastructure",
+        "exploration",
+        "other"
+      ],
+      "eligibility": "direction_unresolved",
+      "dependencies": [
+        "goal"
+      ],
+      "completion": "slot_answered",
+      "followup": "none",
+      "allowed_fields": [
+        "current_role",
+        "goal",
+        "direction",
+        "outcome",
+        "practice",
+        "capability_two",
+        "capability_three",
+        "weekly_hours",
+        "deadline_weeks",
+        "flexibility",
+        "language",
+        "budget",
+        "subscription",
+        "allowed_track",
+        "allowed_level",
+        "per_course_max_hours"
+      ],
+      "is_followup": true,
+      "wording_variants": [
+        "Which direction best describes your goal?",
+        "Please tell me: Which direction best describes your goal?"
+      ]
+    },
+    {
+      "id": "outcome",
+      "axis": "direction",
+      "purpose": "Identify a practical outcome",
+      "slot": "outcome",
+      "stage": "direction",
+      "fallback": "What would you like to be able to do?",
+      "type": "text",
+      "options": [],
+      "eligibility": "always",
+      "dependencies": [
+        "goal"
+      ],
+      "completion": "slot_answered",
+      "followup": "none",
+      "allowed_fields": [
+        "current_role",
+        "goal",
+        "direction",
+        "outcome",
+        "practice",
+        "capability_two",
+        "capability_three",
+        "weekly_hours",
+        "deadline_weeks",
+        "flexibility",
+        "language",
+        "budget",
+        "subscription",
+        "allowed_track",
+        "allowed_level",
+        "per_course_max_hours"
+      ],
+      "is_followup": false,
+      "wording_variants": [
+        "What would you like to be able to do?",
+        "Please tell me: What would you like to be able to do?"
+      ]
+    },
+    {
+      "id": "independent_practice",
+      "axis": "capability",
+      "purpose": "Understand relevant experience",
+      "slot": "practice",
+      "stage": "starting_point",
+      "fallback": "What relevant work or independent practice have you done?",
+      "type": "text",
+      "options": [],
+      "eligibility": "always",
+      "dependencies": [
+        "outcome"
+      ],
+      "completion": "slot_answered",
+      "followup": "none",
+      "allowed_fields": [
+        "current_role",
+        "goal",
+        "direction",
+        "outcome",
+        "practice",
+        "capability_two",
+        "capability_three",
+        "weekly_hours",
+        "deadline_weeks",
+        "flexibility",
+        "language",
+        "budget",
+        "subscription",
+        "allowed_track",
+        "allowed_level",
+        "per_course_max_hours"
+      ],
+      "is_followup": false,
+      "wording_variants": [
+        "What relevant work or independent practice have you done?",
+        "Please tell me: What relevant work or independent practice have you done?"
+      ]
+    },
+    {
+      "id": "cloud_practice",
+      "axis": "capability",
+      "purpose": "Understand cloud practice for this goal",
+      "slot": "capability_two",
+      "stage": "starting_point",
+      "fallback": "What cloud or deployment experience have you had?",
+      "type": "text",
+      "options": [],
+      "eligibility": "technical",
+      "dependencies": [
+        "outcome"
+      ],
+      "completion": "slot_answered",
+      "followup": "none",
+      "allowed_fields": [
+        "current_role",
+        "goal",
+        "direction",
+        "outcome",
+        "practice",
+        "capability_two",
+        "capability_three",
+        "weekly_hours",
+        "deadline_weeks",
+        "flexibility",
+        "language",
+        "budget",
+        "subscription",
+        "allowed_track",
+        "allowed_level",
+        "per_course_max_hours"
+      ],
+      "is_followup": false,
+      "wording_variants": [
+        "What cloud or deployment experience have you had?",
+        "Please tell me: What cloud or deployment experience have you had?"
+      ]
+    },
+    {
+      "id": "generic_capability_two",
+      "axis": "capability",
+      "purpose": "Understand relevant tools and methods",
+      "slot": "capability_two",
+      "stage": "starting_point",
+      "fallback": "Which tools or methods relevant to this goal have you used?",
+      "type": "text",
+      "options": [],
+      "eligibility": "generic",
+      "dependencies": [
+        "outcome"
+      ],
+      "completion": "slot_answered",
+      "followup": "none",
+      "allowed_fields": [
+        "current_role",
+        "goal",
+        "direction",
+        "outcome",
+        "practice",
+        "capability_two",
+        "capability_three",
+        "weekly_hours",
+        "deadline_weeks",
+        "flexibility",
+        "language",
+        "budget",
+        "subscription",
+        "allowed_track",
+        "allowed_level",
+        "per_course_max_hours"
+      ],
+      "is_followup": false,
+      "wording_variants": [
+        "Which tools or methods relevant to this goal have you used?",
+        "Please tell me: Which tools or methods relevant to this goal have you used?"
+      ]
+    },
+    {
+      "id": "ai_practice",
+      "axis": "capability",
+      "purpose": "Understand AI practice for this goal",
+      "slot": "capability_three",
+      "stage": "starting_point",
+      "fallback": "What experience do you have with AI models or applications?",
+      "type": "text",
+      "options": [],
+      "eligibility": "technical",
+      "dependencies": [
+        "outcome"
+      ],
+      "completion": "slot_answered",
+      "followup": "none",
+      "allowed_fields": [
+        "current_role",
+        "goal",
+        "direction",
+        "outcome",
+        "practice",
+        "capability_two",
+        "capability_three",
+        "weekly_hours",
+        "deadline_weeks",
+        "flexibility",
+        "language",
+        "budget",
+        "subscription",
+        "allowed_track",
+        "allowed_level",
+        "per_course_max_hours"
+      ],
+      "is_followup": false,
+      "wording_variants": [
+        "What experience do you have with AI models or applications?",
+        "Please tell me: What experience do you have with AI models or applications?"
+      ]
+    },
+    {
+      "id": "generic_capability_three",
+      "axis": "capability",
+      "purpose": "Understand the next capability gap",
+      "slot": "capability_three",
+      "stage": "starting_point",
+      "fallback": "Which relevant ability would you most like to develop?",
+      "type": "text",
+      "options": [],
+      "eligibility": "generic",
+      "dependencies": [
+        "outcome"
+      ],
+      "completion": "slot_answered",
+      "followup": "none",
+      "allowed_fields": [
+        "current_role",
+        "goal",
+        "direction",
+        "outcome",
+        "practice",
+        "capability_two",
+        "capability_three",
+        "weekly_hours",
+        "deadline_weeks",
+        "flexibility",
+        "language",
+        "budget",
+        "subscription",
+        "allowed_track",
+        "allowed_level",
+        "per_course_max_hours"
+      ],
+      "is_followup": false,
+      "wording_variants": [
+        "Which relevant ability would you most like to develop?",
+        "Please tell me: Which relevant ability would you most like to develop?"
+      ]
+    },
+    {
+      "id": "weekly_hours",
+      "axis": "constraints",
+      "purpose": "Determine weekly capacity",
+      "slot": "weekly_hours",
+      "stage": "constraints",
+      "fallback": "How many hours per week can you study?",
+      "type": "number",
+      "options": [],
+      "eligibility": "always",
+      "dependencies": [],
+      "completion": "slot_answered",
+      "followup": "none",
+      "allowed_fields": [
+        "current_role",
+        "goal",
+        "direction",
+        "outcome",
+        "practice",
+        "capability_two",
+        "capability_three",
+        "weekly_hours",
+        "deadline_weeks",
+        "flexibility",
+        "language",
+        "budget",
+        "subscription",
+        "allowed_track",
+        "allowed_level",
+        "per_course_max_hours"
+      ],
+      "is_followup": false,
+      "wording_variants": [
+        "How many hours per week can you study?",
+        "Please tell me: How many hours per week can you study?"
+      ]
+    },
+    {
+      "id": "deadline",
+      "axis": "constraints",
+      "purpose": "Determine timeline and flexibility",
+      "slot": "deadline_weeks",
+      "stage": "constraints",
+      "fallback": "What is your target in weeks, and how flexible is it?",
+      "type": "text",
+      "options": [],
+      "eligibility": "always",
+      "dependencies": [],
+      "completion": "slot_answered",
+      "followup": "none",
+      "allowed_fields": [
+        "current_role",
+        "goal",
+        "direction",
+        "outcome",
+        "practice",
+        "capability_two",
+        "capability_three",
+        "weekly_hours",
+        "deadline_weeks",
+        "flexibility",
+        "language",
+        "budget",
+        "subscription",
+        "allowed_track",
+        "allowed_level",
+        "per_course_max_hours"
+      ],
+      "is_followup": false,
+      "wording_variants": [
+        "What is your target in weeks, and how flexible is it?",
+        "Please tell me: What is your target in weeks, and how flexible is it?"
+      ]
+    },
+    {
+      "id": "language",
+      "axis": "constraints",
+      "purpose": "Determine content language",
+      "slot": "language",
+      "stage": "constraints",
+      "fallback": "What language would you prefer for learning materials?",
+      "type": "text",
+      "options": [],
+      "eligibility": "always",
+      "dependencies": [],
+      "completion": "slot_answered",
+      "followup": "none",
+      "allowed_fields": [
+        "current_role",
+        "goal",
+        "direction",
+        "outcome",
+        "practice",
+        "capability_two",
+        "capability_three",
+        "weekly_hours",
+        "deadline_weeks",
+        "flexibility",
+        "language",
+        "budget",
+        "subscription",
+        "allowed_track",
+        "allowed_level",
+        "per_course_max_hours"
+      ],
+      "is_followup": false,
+      "wording_variants": [
+        "What language would you prefer for learning materials?",
+        "Please tell me: What language would you prefer for learning materials?"
+      ]
+    },
+    {
+      "id": "budget",
+      "axis": "constraints",
+      "purpose": "Determine budget and subscriptions",
+      "slot": "budget",
+      "stage": "constraints",
+      "fallback": "What is your budget, and do you have any existing subscriptions?",
+      "type": "text",
+      "options": [],
+      "eligibility": "always",
+      "dependencies": [],
+      "completion": "slot_answered",
+      "followup": "none",
+      "allowed_fields": [
+        "current_role",
+        "goal",
+        "direction",
+        "outcome",
+        "practice",
+        "capability_two",
+        "capability_three",
+        "weekly_hours",
+        "deadline_weeks",
+        "flexibility",
+        "language",
+        "budget",
+        "subscription",
+        "allowed_track",
+        "allowed_level",
+        "per_course_max_hours"
+      ],
+      "is_followup": false,
+      "wording_variants": [
+        "What is your budget, and do you have any existing subscriptions?",
+        "Please tell me: What is your budget, and do you have any existing subscriptions?"
+      ]
+    }
+  ],
+  "fields": {
+    "current_role": {
+      "type": "text"
+    },
+    "goal": {
+      "type": "text"
+    },
+    "direction": {
+      "type": "choice",
+      "values": [
+        "applications",
+        "model training",
+        "infrastructure",
+        "exploration",
+        "other"
+      ]
+    },
+    "outcome": {
+      "type": "text"
+    },
+    "practice": {
+      "type": "text"
+    },
+    "capability_two": {
+      "type": "text"
+    },
+    "capability_three": {
+      "type": "text"
+    },
+    "weekly_hours": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 168
+    },
+    "deadline_weeks": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 520
+    },
+    "flexibility": {
+      "type": "text"
+    },
+    "language": {
+      "type": "text"
+    },
+    "budget": {
+      "type": "text"
+    },
+    "subscription": {
+      "type": "text"
+    },
+    "allowed_track": {
+      "type": "text"
+    },
+    "allowed_level": {
+      "type": "text"
+    },
+    "per_course_max_hours": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 10000
+    }
+  }
+}

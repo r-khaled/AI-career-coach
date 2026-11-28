@@ -1,0 +1,19 @@
+{
+  "facts": [
+    {
+      "key": "aws_lambda_practice",
+      "value": "has_tried",
+      "source_question_id": "cloud_practice",
+      "basis": "user_reported"
+    },
+    {
+      "key": "iam_practice",
+      "value": "limited",
+      "source_question_id": "cloud_practice",
+      "basis": "user_reported"
+    }
+  ],
+  "unresolved": [],
+  "suggested_followup_id": null,
+  "suggested_question_text": null
+}

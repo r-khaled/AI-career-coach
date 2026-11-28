@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:aicc:dialogue-response:1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "state_version",
+    "stage",
+    "status",
+    "next_question",
+    "review"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "state_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "stage": {
+      "enum": [
+        "direction",
+        "starting_point",
+        "constraints",
+        "review",
+        "planning",
+        "complete"
+      ]
+    },
+    "status": {
+      "enum": [
+        "awaiting_answer",
+        "review_required",
+        "ready_to_generate",
+        "planning",
+        "complete"
+      ]
+    },
+    "next_question": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "question_id",
+            "text",
+            "answer_type",
+            "options",
+            "allow_unknown",
+            "optional"
+          ],
+          "properties": {
+            "question_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1
+            },
+            "answer_type": {
+              "enum": [
+                "text",
+                "single_choice",
+                "multiple_choice",
+                "number"
+              ]
+            },
+            "options": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "allow_unknown": {
+              "type": "boolean"
+            },
+            "optional": {
+              "type": "boolean"
+            }
+          }
+        }
+      ]
+    },
+    "review": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "required": [
+            "summary",
+            "assumptions",
+            "unresolved"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "summary": {
+              "type": "string"
+            },
+            "assumptions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "unresolved": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

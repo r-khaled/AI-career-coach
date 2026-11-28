@@ -1,0 +1,16 @@
+{
+  "evidence_id": "e1",
+  "source": "internal_catalog",
+  "uri": "s3://example-catalog-bucket/internal_courses.md",
+  "retrieved_at": "2026-11-26T10:00:00Z",
+  "catalog_version": "2.0",
+  "parsed_source_sha256": "abdd9581340c582527b90a903cb116fe39e529a4e7d1e247f80eabad1aa69336",
+  "course_id": "AIML-001",
+  "supported_fields": [
+    "title",
+    "duration_hours",
+    "prerequisites",
+    "skills",
+    "outcomes"
+  ]
+}

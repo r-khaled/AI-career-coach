@@ -1,0 +1,13 @@
+{
+  "resource_id": "internal:AIML-001",
+  "kind": "internal",
+  "course_id": "AIML-001",
+  "title": "AI Literacy and Responsible Evaluation",
+  "url": null,
+  "duration_hours": 12,
+  "prerequisite_status": "none",
+  "reason": "Covers AI and evaluation foundations needed before building the application",
+  "evidence_ids": [
+    "e1"
+  ]
+}

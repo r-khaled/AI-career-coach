@@ -1,0 +1,79 @@
+{
+  "schema_version": "1.0",
+  "plan_id": "example-plan",
+  "revision": 1,
+  "profile_version": 12,
+  "goal": "Start building the foundations for a document-grounded RAG application",
+  "starting_point": "Self-reported backend experience; AI foundations are needed",
+  "assumptions": [
+    "Self-reported experience is not a certified assessment"
+  ],
+  "phases": [
+    {
+      "phase_id": "p1",
+      "title": "AI foundations and evaluation",
+      "depends_on": [],
+      "skills": [
+        "ai_literacy",
+        "responsible_evaluation"
+      ],
+      "outcomes": [
+        "Distinguish RAG from training and identify unsupported claims"
+      ],
+      "resource_ids": [
+        "internal:AIML-001"
+      ],
+      "practice": {
+        "description": "Prepare an evaluation checklist and review unsupported-answer examples",
+        "estimated_hours": 4
+      },
+      "completion_criteria": [
+        "Explain why convincing wording does not establish answer correctness"
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "resource_id": "internal:AIML-001",
+      "kind": "internal",
+      "course_id": "AIML-001",
+      "title": "AI Literacy and Responsible Evaluation",
+      "url": null,
+      "duration_hours": 12,
+      "prerequisite_status": "none",
+      "reason": "Covers AI and evaluation foundations needed before building the application",
+      "evidence_ids": [
+        "e1"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "evidence_id": "e1",
+      "source": "internal_catalog",
+      "uri": "s3://example-catalog-bucket/internal_courses.md",
+      "retrieved_at": "2026-11-26T10:00:00Z",
+      "catalog_version": "2.0",
+      "parsed_source_sha256": "abdd9581340c582527b90a903cb116fe39e529a4e7d1e247f80eabad1aa69336",
+      "course_id": "AIML-001",
+      "supported_fields": [
+        "title",
+        "duration_hours",
+        "prerequisites",
+        "skills",
+        "outcomes"
+      ]
+    }
+  ],
+  "time_budget": {
+    "weekly_hours": 6,
+    "target_weeks": 12,
+    "known_course_hours": 12,
+    "estimated_practice_hours": 4,
+    "unestimated_resource_ids": [],
+    "fit_status": "estimated_fit"
+  },
+  "coverage_gaps": [
+    "This example does not cover the remaining cloud and RAG pathway"
+  ]
+}

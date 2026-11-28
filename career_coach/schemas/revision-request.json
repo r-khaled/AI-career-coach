@@ -1,0 +1,32 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_id",
+    "base_revision",
+    "profile_version",
+    "change_request"
+  ],
+  "properties": {
+    "request_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "base_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "profile_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "change_request": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:aicc:revision-request:1"
+}

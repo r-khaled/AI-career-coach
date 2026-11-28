@@ -1,0 +1,13 @@
+{
+  "evidence_kind": "synthetic offline examples; not live retrieval results or a benchmark",
+  "catalog": "local catalog v2.0 fixture IDs only",
+  "model": "not invoked",
+  "cases": [
+    {"id":"security-en","language":"en","current_role":"backend developer","goal":"Learn authentication and authorization SEC-201","relevant":["SEC-201","SEC-101","BKE-101","SDE-101"],"legacy":["SEC-201","SEC-101","BKE-101","SDE-101"],"semantic":["SEC-201","SEC-101","BKE-101","SDE-101"]},
+    {"id":"security-ar","language":"ar","current_role":"مطور تطبيقات خلفية","goal":"تعلم المصادقة والتفويض SEC-201","relevant":["SEC-201","SEC-101","BKE-101","SDE-101"],"legacy":["SEC-201","SEC-101","BKE-101","SDE-101"],"semantic":["SEC-201","SEC-101","BKE-101","SDE-101"]},
+    {"id":"rag-en","language":"en","current_role":"backend developer","goal":"Build document-grounded RAG applications","relevant":["AIML-201","AIML-001","CLD-001","BKE-201"],"legacy":["AIML-201","AIML-001"],"semantic":["AIML-201","AIML-001","CLD-001","BKE-201"]},
+    {"id":"rag-ar","language":"ar","current_role":"مطور تطبيقات خلفية","goal":"بناء تطبيق يسترجع المستندات ويجيب مع مصادر","relevant":["AIML-201","AIML-001","CLD-001","BKE-201"],"legacy":["AIML-201","AIML-001"],"semantic":["AIML-201","AIML-001","CLD-001","BKE-201"]},
+    {"id":"missing","language":"en","current_role":"learner","goal":"Find MISSING-999","relevant":[],"legacy":[],"semantic":[]},
+    {"id":"outside","language":"en","current_role":"teacher","goal":"Become a pastry chef","relevant":[],"legacy":[],"semantic":[]}
+  ]
+}

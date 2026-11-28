@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "state_version": 7,
+  "stage": "starting_point",
+  "status": "awaiting_answer",
+  "next_question": {
+    "question_id": "rag_practice",
+    "text": "Have you only used a model API, or have you searched documents and inspected retrieved sources?",
+    "answer_type": "text",
+    "options": [],
+    "allow_unknown": true,
+    "optional": false
+  },
+  "review": null
+}

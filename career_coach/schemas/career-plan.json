@@ -1,0 +1,330 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:aicc:career-plan:1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "plan_id",
+    "revision",
+    "profile_version",
+    "goal",
+    "starting_point",
+    "assumptions",
+    "phases",
+    "resources",
+    "evidence",
+    "time_budget",
+    "coverage_gaps"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "plan_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "profile_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "goal": {
+      "type": "string",
+      "minLength": 1
+    },
+    "starting_point": {
+      "type": "string"
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "phases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/phase"
+      }
+    },
+    "resources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/resource"
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidence"
+      }
+    },
+    "time_budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "weekly_hours",
+        "target_weeks",
+        "known_course_hours",
+        "estimated_practice_hours",
+        "unestimated_resource_ids",
+        "fit_status"
+      ],
+      "properties": {
+        "weekly_hours": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "target_weeks": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "known_course_hours": {
+          "type": "number",
+          "minimum": 0
+        },
+        "estimated_practice_hours": {
+          "type": "number",
+          "minimum": 0
+        },
+        "unestimated_resource_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fit_status": {
+          "enum": [
+            "estimated_fit",
+            "exceeds",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "coverage_gaps": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "$defs": {
+    "phase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "phase_id",
+        "title",
+        "depends_on",
+        "skills",
+        "outcomes",
+        "resource_ids",
+        "practice",
+        "completion_criteria"
+      ],
+      "properties": {
+        "phase_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "skills": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "outcomes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "practice": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "description",
+            "estimated_hours"
+          ],
+          "properties": {
+            "description": {
+              "type": "string"
+            },
+            "estimated_hours": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "completion_criteria": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resource_id",
+        "kind",
+        "course_id",
+        "title",
+        "url",
+        "duration_hours",
+        "prerequisite_status",
+        "reason",
+        "evidence_ids"
+      ],
+      "properties": {
+        "resource_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "internal",
+            "external"
+          ]
+        },
+        "course_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        },
+        "duration_hours": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "prerequisite_status": {
+          "enum": [
+            "none",
+            "included",
+            "user_confirmed_equivalence",
+            "unresolved"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_id",
+        "source",
+        "uri",
+        "retrieved_at",
+        "catalog_version",
+        "parsed_source_sha256",
+        "course_id",
+        "supported_fields"
+      ],
+      "properties": {
+        "evidence_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "enum": [
+            "internal_catalog",
+            "search_snippet",
+            "course_page"
+          ]
+        },
+        "uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "retrieved_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "catalog_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "parsed_source_sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "course_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "supported_fields": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
